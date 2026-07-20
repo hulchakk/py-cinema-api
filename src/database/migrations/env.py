@@ -9,6 +9,7 @@ from alembic import context
 
 from config.settings import settings
 from database.models.base import Base
+
 # from database.models import  # noqa: F401
 
 # this is the Alembic Config object, which provides
