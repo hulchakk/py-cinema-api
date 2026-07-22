@@ -5,18 +5,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from starlette import status
 
+from config.dependencies import get_jwt_auth_manager, get_settings
+from config.settings import Settings
 from database.models.accounts import (
     UserModel,
     UserGroupModel,
     UserGroupEnum,
     ActivationTokenModel,
+    RefreshTokenModel,
 )
 from database.session import get_db
 from schemas.accounts import (
     UserResponseSchema,
     UserRequestSchema,
     UserActivateRequestSchema,
+    UserLoginResponseSchema,
 )
+from security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter(
     prefix="/accounts",
@@ -115,3 +120,54 @@ async def activate_user(
     await db.commit()
 
     return user
+
+
+@router.post(
+    "/login",
+    status_code=status.HTTP_200_OK,
+    response_model=UserLoginResponseSchema,
+)
+async def login_user(
+    login_data: UserRequestSchema,
+    settings: Settings = Depends(get_settings),
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(UserModel).where(UserModel.email == login_data.email)
+    user = await db.scalar(stmt)
+
+    if not user or not user.verify_password(login_data.password.get_secret_value()):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is not activated.",
+        )
+
+    jwt_refresh_token = jwt_manager.create_refresh_token({"user_id": user.id})
+
+    try:
+        refresh_token = RefreshTokenModel.create(
+            user_id=user.id,
+            days_valid=settings.LOGIN_TIME_DAYS,
+            token=jwt_refresh_token,
+        )
+        db.add(refresh_token)
+        await db.flush()
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while processing the request.",
+        )
+
+    jwt_access_token = jwt_manager.create_access_token({"user_id": user.id})
+    return UserLoginResponseSchema(
+        access_token=jwt_access_token,
+        refresh_token=jwt_refresh_token,
+    )

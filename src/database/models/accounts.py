@@ -8,7 +8,7 @@ from sqlalchemy import String, DateTime, ForeignKey, func, UniqueConstraint, Int
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.models.base import Base
-from security.passwords import hash_password
+from security.passwords import hash_password, verify_password
 from security.utils import generate_secure_token
 
 
@@ -74,6 +74,9 @@ class UserModel(Base):
         return (
             f"<UserModel(id={self.id}, email={self.email}), is_active={self.is_active}>"
         )
+
+    def verify_password(self, raw_password: str) -> bool:
+        return verify_password(raw_password, self._hashed_password)
 
     @property
     def password(self):

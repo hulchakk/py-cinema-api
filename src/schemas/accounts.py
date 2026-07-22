@@ -16,3 +16,8 @@ class UserResponseSchema(BaseModel):
 class UserActivateRequestSchema(BaseModel):
     email: EmailStr
     token: SecretStr
+
+
+class UserLoginResponseSchema(BaseModel):
+    access_token: str
+    refresh_token: str

@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     SECRET_KEY_REFRESH: str = "super-secret-refresh-key-change-me"
     JWT_SIGNING_ALGORITHM: str = "HS256"
 
+    LOGIN_TIME_DAYS: int = 86400
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
