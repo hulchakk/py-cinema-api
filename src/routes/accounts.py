@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 from starlette import status
 
 from database.models.accounts import (
@@ -11,7 +12,11 @@ from database.models.accounts import (
     ActivationTokenModel,
 )
 from database.session import get_db
-from schemas.accounts import UserRegisterResponseSchema, UserRequestSchema
+from schemas.accounts import (
+    UserRegisterResponseSchema,
+    UserRequestSchema,
+    UserActivateRequestSchema,
+)
 
 router = APIRouter(
     prefix="/accounts",
@@ -31,7 +36,7 @@ async def register_user(
 
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered."
         )
 
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
@@ -66,3 +71,47 @@ async def register_user(
         ) from e
     else:
         return new_user
+
+
+@router.post(
+    "/activate",
+    status_code=status.HTTP_200_OK,
+    response_model=UserRegisterResponseSchema,
+)
+async def activate_user(
+    user_data: UserActivateRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    stmt = (
+        select(UserModel)
+        .where(UserModel.email == user_data.email)
+        .options(joinedload(UserModel.activation_token))
+    )
+    user = await db.scalar(stmt)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User not found.",
+        )
+
+    if user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This user is already activated.",
+        )
+
+    if (
+        not user.activation_token
+        or user.activation_token.token != user_data.token
+        or user.activation_token.is_expired
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid activation token.",
+        )
+
+    user.is_active = True
+    await db.delete(user.activation_token)
+    await db.commit()
+
+    return user

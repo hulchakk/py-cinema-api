@@ -9,3 +9,8 @@ class UserRequestSchema(BaseModel):
 class UserRegisterResponseSchema(BaseModel):
     id: int
     email: EmailStr
+
+
+class UserActivateRequestSchema(BaseModel):
+    email: EmailStr
+    token: SecretStr
