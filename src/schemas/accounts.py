@@ -21,3 +21,11 @@ class UserActivateRequestSchema(BaseModel):
 class UserLoginResponseSchema(BaseModel):
     access_token: str
     refresh_token: str
+
+
+class ResetPasswordRequestSchema(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordResponseSchema(BaseModel):
+    message: str

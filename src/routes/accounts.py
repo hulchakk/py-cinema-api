@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, cast
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -13,6 +13,7 @@ from database.models.accounts import (
     UserGroupEnum,
     ActivationTokenModel,
     RefreshTokenModel,
+    PasswordResetTokenModel,
 )
 from database.session import get_db
 from schemas.accounts import (
@@ -20,6 +21,8 @@ from schemas.accounts import (
     UserRequestSchema,
     UserActivateRequestSchema,
     UserLoginResponseSchema,
+    ResetPasswordResponseSchema,
+    ResetPasswordRequestSchema,
 )
 from security.interfaces import JWTAuthManagerInterface
 
@@ -171,3 +174,36 @@ async def login_user(
         access_token=jwt_access_token,
         refresh_token=jwt_refresh_token,
     )
+
+
+@router.post(
+    "/password/request-reset",
+    status_code=status.HTTP_200_OK,
+    response_model=ResetPasswordResponseSchema,
+)
+async def request_password_reset(
+    user_data: ResetPasswordRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    response = ResetPasswordResponseSchema(
+        message="If you are registered, you will receive an email.",
+    )
+
+    stmt = (
+        select(UserModel)
+        .where(UserModel.email == user_data.email)
+        .options(joinedload(UserModel.password_reset_token))
+    )
+    user = await db.scalar(stmt)
+
+    if not user or not user.is_active:
+        return response
+
+    if user.password_reset_token:
+        await db.delete(user.password_reset_token)
+        await db.flush()
+
+    reset_token = PasswordResetTokenModel(user_id=user.id)
+    db.add(reset_token)
+    await db.commit()
+
+    return response
