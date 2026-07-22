@@ -13,7 +13,7 @@ from database.models.accounts import (
 )
 from database.session import get_db
 from schemas.accounts import (
-    UserRegisterResponseSchema,
+    UserResponseSchema,
     UserRequestSchema,
     UserActivateRequestSchema,
 )
@@ -26,7 +26,7 @@ router = APIRouter(
 @router.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
-    response_model=UserRegisterResponseSchema,
+    response_model=UserResponseSchema,
 )
 async def register_user(
     user_data: UserRequestSchema, db: AsyncSession = Depends(get_db)
@@ -76,7 +76,7 @@ async def register_user(
 @router.post(
     "/activate",
     status_code=status.HTTP_200_OK,
-    response_model=UserRegisterResponseSchema,
+    response_model=UserResponseSchema,
 )
 async def activate_user(
     user_data: UserActivateRequestSchema, db: AsyncSession = Depends(get_db)

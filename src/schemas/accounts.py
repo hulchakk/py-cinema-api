@@ -6,9 +6,11 @@ class UserRequestSchema(BaseModel):
     password: SecretStr
 
 
-class UserRegisterResponseSchema(BaseModel):
+class UserResponseSchema(BaseModel):
     id: int
     email: EmailStr
+
+    model_config = {"from_attributes": True}
 
 
 class UserActivateRequestSchema(BaseModel):
