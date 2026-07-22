@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, cast
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -23,6 +23,7 @@ from schemas.accounts import (
     UserLoginResponseSchema,
     ResetPasswordResponseSchema,
     ResetPasswordRequestSchema,
+    ResetPasswordCompleteRequestSchema,
 )
 from security.interfaces import JWTAuthManagerInterface
 
@@ -207,3 +208,55 @@ async def request_password_reset(
     await db.commit()
 
     return response
+
+
+@router.post(
+    "/password/reset-complete",
+    status_code=status.HTTP_200_OK,
+    response_model=ResetPasswordResponseSchema,
+)
+async def reset_password_complete(
+    user_data: ResetPasswordCompleteRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    invalid_exception = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or token."
+    )
+
+    stmt = (
+        select(UserModel)
+        .where(UserModel.email == user_data.email)
+        .options(
+            joinedload(UserModel.password_reset_token),
+        )
+    )
+    user = await db.scalar(stmt)
+
+    if not user or not user.is_active:
+        raise invalid_exception
+
+    token_record = user.password_reset_token
+
+    if not token_record or token_record.token != user_data.token.get_secret_value():
+        if token_record:
+            await db.delete(token_record)
+            await db.commit()
+        raise invalid_exception
+
+    if token_record.is_expired:
+        await db.delete(token_record)
+        await db.commit()
+
+        raise invalid_exception
+
+    try:
+        user.password = user_data.password.get_secret_value()
+        await db.delete(token_record)
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while resetting the password.",
+        )
+
+    return ResetPasswordResponseSchema(message="Password reset successfully.")
