@@ -52,7 +52,7 @@ async def register_user(
     try:
         new_user = UserModel.create(
             email=str(user_data.email),
-            raw_password=user_data.password,
+            raw_password=user_data.password.get_secret_value(),
             group_id=user_group.id,
         )
         db.add(new_user)
@@ -102,11 +102,11 @@ async def activate_user(
 
     if (
         not user.activation_token
-        or user.activation_token.token != user_data.token
+        or user.activation_token.token != user_data.token.get_secret_value()
         or user.activation_token.is_expired
     ):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid activation token.",
         )
 
