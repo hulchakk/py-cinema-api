@@ -13,9 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from config.settings import settings
-from database.models.base import Base
-
-# from database.models import  # noqa: F401
+from database.models.accounts import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

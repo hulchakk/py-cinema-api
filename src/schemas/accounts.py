@@ -1,9 +1,9 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, SecretStr
 
 
 class UserRequestSchema(BaseModel):
     email: EmailStr
-    password: str
+    password: SecretStr
 
 
 class UserRegisterResponseSchema(BaseModel):
