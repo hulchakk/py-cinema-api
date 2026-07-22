@@ -24,6 +24,7 @@ from schemas.accounts import (
     ResetPasswordResponseSchema,
     ResetPasswordRequestSchema,
     ResetPasswordCompleteRequestSchema,
+    ChangePasswordRequestSchema,
 )
 from security.interfaces import JWTAuthManagerInterface
 
@@ -260,3 +261,30 @@ async def reset_password_complete(
         )
 
     return ResetPasswordResponseSchema(message="Password reset successfully.")
+
+
+@router.post(
+    "/password/change",
+    status_code=status.HTTP_200_OK,
+    response_model=ResetPasswordResponseSchema,
+)
+async def change_password(
+    user_data: ChangePasswordRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    invalid_exception = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or password."
+    )
+
+    stmt = select(UserModel).where(UserModel.email == user_data.email)
+    user = await db.scalar(stmt)
+
+    if not user or not user.is_active:
+        raise invalid_exception
+
+    if not user.verify_password(user_data.old_password.get_secret_value()):
+        raise invalid_exception
+
+    user.password = user_data.new_password.get_secret_value()
+    await db.commit()
+
+    return ResetPasswordResponseSchema(message="Password changed successfully.")

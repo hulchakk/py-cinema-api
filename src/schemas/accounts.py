@@ -35,3 +35,9 @@ class ResetPasswordCompleteRequestSchema(BaseModel):
     email: EmailStr
     token: SecretStr
     password: SecretStr
+
+
+class ChangePasswordRequestSchema(BaseModel):
+    email: EmailStr
+    old_password: SecretStr
+    new_password: SecretStr
