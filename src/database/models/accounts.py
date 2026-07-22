@@ -62,6 +62,14 @@ class UserModel(Base):
         "RefreshTokenModel", back_populates="user", cascade="all, delete-orphan"
     )
 
+    @classmethod
+    def create(
+        cls, email: str, raw_password: str, group_id: int | Mapped[int]
+    ) -> "UserModel":
+        user = cls(email=email, group_id=group_id)
+        user.password = raw_password
+        return user
+
     def __repr__(self) -> str:
         return (
             f"<UserModel(id={self.id}, email={self.email}), is_active={self.is_active}>"
