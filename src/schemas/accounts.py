@@ -27,7 +27,7 @@ class ResetPasswordRequestSchema(BaseModel):
     email: EmailStr
 
 
-class ResetPasswordResponseSchema(BaseModel):
+class MessageResponseSchema(BaseModel):
     message: str
 
 
@@ -38,6 +38,5 @@ class ResetPasswordCompleteRequestSchema(BaseModel):
 
 
 class ChangePasswordRequestSchema(BaseModel):
-    email: EmailStr
     old_password: SecretStr
     new_password: SecretStr

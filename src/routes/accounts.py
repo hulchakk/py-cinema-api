@@ -21,11 +21,12 @@ from schemas.accounts import (
     UserRequestSchema,
     UserActivateRequestSchema,
     UserLoginResponseSchema,
-    ResetPasswordResponseSchema,
+    MessageResponseSchema,
     ResetPasswordRequestSchema,
     ResetPasswordCompleteRequestSchema,
     ChangePasswordRequestSchema,
 )
+from security.dependencies import get_current_user
 from security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter(
@@ -181,12 +182,12 @@ async def login_user(
 @router.post(
     "/password/request-reset",
     status_code=status.HTTP_200_OK,
-    response_model=ResetPasswordResponseSchema,
+    response_model=MessageResponseSchema,
 )
 async def request_password_reset(
     user_data: ResetPasswordRequestSchema, db: AsyncSession = Depends(get_db)
 ):
-    response = ResetPasswordResponseSchema(
+    response = MessageResponseSchema(
         message="If you are registered, you will receive an email.",
     )
 
@@ -214,7 +215,7 @@ async def request_password_reset(
 @router.post(
     "/password/reset-complete",
     status_code=status.HTTP_200_OK,
-    response_model=ResetPasswordResponseSchema,
+    response_model=MessageResponseSchema,
 )
 async def reset_password_complete(
     user_data: ResetPasswordCompleteRequestSchema, db: AsyncSession = Depends(get_db)
@@ -260,31 +261,34 @@ async def reset_password_complete(
             detail="An error occurred while resetting the password.",
         )
 
-    return ResetPasswordResponseSchema(message="Password reset successfully.")
+    return MessageResponseSchema(message="Password reset successfully.")
 
 
 @router.post(
     "/password/change",
     status_code=status.HTTP_200_OK,
-    response_model=ResetPasswordResponseSchema,
+    response_model=MessageResponseSchema,
 )
 async def change_password(
-    user_data: ChangePasswordRequestSchema, db: AsyncSession = Depends(get_db)
+    user_data: ChangePasswordRequestSchema,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    invalid_exception = HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or password."
-    )
-
-    stmt = select(UserModel).where(UserModel.email == user_data.email)
-    user = await db.scalar(stmt)
-
-    if not user or not user.is_active:
-        raise invalid_exception
-
     if not user.verify_password(user_data.old_password.get_secret_value()):
-        raise invalid_exception
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password."
+        )
+
+    if (
+        user_data.old_password.get_secret_value()
+        == user_data.new_password.get_secret_value()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password cannot be the same as the old password.",
+        )
 
     user.password = user_data.new_password.get_secret_value()
     await db.commit()
 
-    return ResetPasswordResponseSchema(message="Password changed successfully.")
+    return MessageResponseSchema(message="Password changed successfully.")
