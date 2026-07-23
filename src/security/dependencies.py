@@ -46,7 +46,10 @@ async def get_current_user(
 
 class PermissionChecker:
     def __init__(self, allowed_groups: List[UserGroupEnum]):
-        self.allowed_groups = allowed_groups
+        self.allowed_groups = [
+            group.value
+            for group in allowed_groups
+        ]
 
     async def __call__(self, current_user: UserModel = Depends(get_current_user)):
         if current_user.group.name not in self.allowed_groups:
