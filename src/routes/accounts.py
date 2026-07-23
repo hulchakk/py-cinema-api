@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,11 +139,15 @@ async def activate_user(
     response_model=UserLoginResponseSchema,
 )
 async def login_user(
-    login_data: UserRequestSchema,
+    login_form: OAuth2PasswordRequestForm = Depends(),
     settings: Settings = Depends(get_settings),
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    login_data = UserRequestSchema(
+        email=login_form.username,
+        password=SecretStr(login_form.password),
+    )
     stmt = select(UserModel).where(UserModel.email == login_data.email)
     user = await db.scalar(stmt)
 
