@@ -40,3 +40,11 @@ class ResetPasswordCompleteRequestSchema(BaseModel):
 class ChangePasswordRequestSchema(BaseModel):
     old_password: SecretStr
     new_password: SecretStr
+
+
+class TokenRefreshRequestSchema(BaseModel):
+    refresh_token: SecretStr
+
+
+class TokenRefreshResponseSchema(BaseModel):
+    access_token: str

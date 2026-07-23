@@ -16,6 +16,7 @@ from database.models.accounts import (
     PasswordResetTokenModel,
 )
 from database.session import get_db
+from exceptions.security import BaseSecurityError
 from schemas.accounts import (
     UserResponseSchema,
     UserRequestSchema,
@@ -25,6 +26,8 @@ from schemas.accounts import (
     ResetPasswordRequestSchema,
     ResetPasswordCompleteRequestSchema,
     ChangePasswordRequestSchema,
+    TokenRefreshResponseSchema,
+    TokenRefreshRequestSchema,
 )
 from security.dependencies import get_current_user
 from security.interfaces import JWTAuthManagerInterface
@@ -176,6 +179,59 @@ async def login_user(
     return UserLoginResponseSchema(
         access_token=jwt_access_token,
         refresh_token=jwt_refresh_token,
+    )
+
+
+@router.post(
+    "/refresh",
+    status_code=status.HTTP_200_OK,
+    response_model=TokenRefreshResponseSchema,
+)
+async def refresh_access_token(
+    user_data: TokenRefreshRequestSchema,
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        payload = jwt_manager.decode_refresh_token(
+            user_data.refresh_token.get_secret_value()
+        )
+        user_id = payload.get("user_id")
+    except BaseSecurityError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    user = await db.scalar(stmt)
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    stmt = select(RefreshTokenModel).where(
+        RefreshTokenModel.token == user_data.refresh_token
+    )
+    refresh_token = await db.scalar(stmt)
+
+    token_not_found = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Refresh token not found.",
+    )
+
+    if not refresh_token:
+        raise token_not_found
+
+    if refresh_token.is_expired:
+        await db.delete(refresh_token)
+        raise token_not_found
+
+    jwt_access_token = jwt_manager.create_access_token({"user_id": user.id})
+    return TokenRefreshResponseSchema(
+        access_token=jwt_access_token,
     )
 
 
