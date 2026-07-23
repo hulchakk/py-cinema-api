@@ -213,7 +213,7 @@ async def refresh_access_token(
         )
 
     stmt = select(RefreshTokenModel).where(
-        RefreshTokenModel.token == user_data.refresh_token
+        RefreshTokenModel.token == user_data.refresh_token.get_secret_value()
     )
     refresh_token = await db.scalar(stmt)
 
