@@ -1,6 +1,7 @@
 import uuid
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
@@ -29,10 +30,16 @@ router = APIRouter(
 async def list_movies(
     request: Request,
     pagination: PaginationParams = Depends(),
+    search: Optional[str] = Query(default=None),
     filtering: MovieFilterParams = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(func.count(MovieModel.id))
+    stmt = filtering.apply_filters(stmt, MovieModel)
+
+    if search:
+        stmt = stmt.where(MovieModel.name.ilike(f"%{search}%"))
+
     total = await db.scalar(stmt) or 0
 
     stmt = (
@@ -45,6 +52,9 @@ async def list_movies(
         )
     )
     stmt = filtering.apply_filters(stmt, MovieModel)
+
+    if search:
+        stmt = stmt.where(MovieModel.name.ilike(f"%{search}%"))
 
     results = list((await db.scalars(stmt)).all()) or []
 
