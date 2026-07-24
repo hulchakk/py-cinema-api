@@ -4,9 +4,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from database.models.movies import GenreModel
+from database.models.movies import GenreModel, StarModel
 from database.session import get_db
-from schemas.movies import GenreCreateResponseSchema, GenreCreateRequestSchema
+from schemas.movies import (
+    GenreCreateResponseSchema,
+    GenreCreateRequestSchema,
+    StarCreateResponseSchema,
+    StarCreateRequestSchema,
+)
 
 router = APIRouter(
     prefix="/movies",
@@ -35,3 +40,28 @@ async def create_genre(
         )
 
     return new_genre
+
+
+@router.post(
+    "/stars",
+    status_code=status.HTTP_201_CREATED,
+    response_model=StarCreateResponseSchema,
+)
+async def create_star(
+    user_data: StarCreateRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    new_star = StarModel(**user_data.model_dump())
+
+    db.add(new_star)
+    try:
+        await db.commit()
+        await db.refresh(new_star)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Star with name '{user_data.name}' already exists.",
+        )
+
+    return new_star
+

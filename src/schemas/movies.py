@@ -11,3 +11,15 @@ class GenreCreateResponseSchema(GenreBaseSchema):
 
 class GenreCreateRequestSchema(GenreBaseSchema):
     pass
+
+
+class StarBaseSchema(BaseModel):
+    name: str
+
+
+class StarCreateResponseSchema(StarBaseSchema):
+    id: int
+
+
+class StarCreateRequestSchema(StarBaseSchema):
+    pass
