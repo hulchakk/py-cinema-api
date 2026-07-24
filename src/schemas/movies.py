@@ -143,13 +143,30 @@ MovieUpdateResponseSchema = MovieCreateResponseSchema
 
 
 class MovieRetrieveResponseSchema(MovieUpdateResponseSchema):
-    genres: list[str]
-    directors: list[str]
-    stars: list[str]
+    certification_id: int = Field(exclude=True)
+    certification: CertificationResponseSchema
+    genres: list[GenreResponseSchema]
+    directors: list[DirectorResponseSchema]
+    stars: list[StarResponseSchema]
 
-    @field_validator("genres", "directors", "stars", mode="before")
+
+class MovieListResponseSchema(BaseModel):
+    id: int
+    uuid: uuid.UUID
+    name: str
+    year: int
+    time: int
+    imdb: float
+    votes: int
+    meta_score: Optional[float] = None
+    genres: list[str]
+    certification: CertificationResponseSchema
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("genres", mode="before")
     @classmethod
-    def convert_models_to_names(cls, value):
+    def convert_genres_to_names(cls, value):
         if value and hasattr(value[0], "name"):
             return [item.name for item in value]
         return value

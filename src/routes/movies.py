@@ -1,14 +1,20 @@
-from fastapi import APIRouter, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from starlette import status
 from starlette.requests import Request
 
 from database.models.movies import MovieModel
 from database.session import get_db
 from routes.dependencies import PaginationParams
-from schemas.movies import PaginatedResponseSchema, MovieRetrieveResponseSchema
+from schemas.movies import (
+    PaginatedResponseSchema,
+    MovieRetrieveResponseSchema,
+    MovieListResponseSchema,
+)
 
 router = APIRouter(
     prefix="/movies",
@@ -18,9 +24,9 @@ router = APIRouter(
 @router.get(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=PaginatedResponseSchema[MovieRetrieveResponseSchema],
+    response_model=PaginatedResponseSchema[MovieListResponseSchema],
 )
-async def movies(
+async def list_movies(
     request: Request,
     pagination: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
@@ -33,9 +39,8 @@ async def movies(
         .offset(pagination.offset)
         .limit(pagination.limit)
         .options(
+            joinedload(MovieModel.certification),
             selectinload(MovieModel.genres),
-            selectinload(MovieModel.directors),
-            selectinload(MovieModel.stars),
         )
     )
     results = list((await db.scalars(stmt)).all()) or []
@@ -69,3 +74,29 @@ async def movies(
         previous_page=previous_page,
         next_page=next_page,
     )
+
+
+@router.get(
+    "/{movie_uuid}",
+    status_code=status.HTTP_200_OK,
+    response_model=MovieRetrieveResponseSchema,
+)
+async def get_movie_details(movie_uuid: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    stmt = (
+        select(MovieModel)
+        .where(MovieModel.uuid == movie_uuid)
+        .options(
+            joinedload(MovieModel.certification),
+            selectinload(MovieModel.genres),
+            selectinload(MovieModel.directors),
+            selectinload(MovieModel.stars),
+        )
+    )
+    movie = await db.scalar(stmt) or None
+
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found."
+        )
+
+    return movie
