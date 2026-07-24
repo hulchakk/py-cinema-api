@@ -23,3 +23,15 @@ class StarCreateResponseSchema(StarBaseSchema):
 
 class StarCreateRequestSchema(StarBaseSchema):
     pass
+
+
+class DirectorBaseSchema(BaseModel):
+    name: str
+
+
+class DirectorCreateResponseSchema(DirectorBaseSchema):
+    id: int
+
+
+class DirectorCreateRequestSchema(DirectorBaseSchema):
+    pass

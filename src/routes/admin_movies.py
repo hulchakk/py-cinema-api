@@ -4,13 +4,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from database.models.movies import GenreModel, StarModel
+from database.models.movies import GenreModel, StarModel, DirectorModel
 from database.session import get_db
 from schemas.movies import (
     GenreCreateResponseSchema,
     GenreCreateRequestSchema,
     StarCreateResponseSchema,
     StarCreateRequestSchema,
+    DirectorCreateResponseSchema,
+    DirectorCreateRequestSchema,
 )
 
 router = APIRouter(
@@ -65,3 +67,26 @@ async def create_star(
 
     return new_star
 
+
+@router.post(
+    "/directors",
+    status_code=status.HTTP_201_CREATED,
+    response_model=DirectorCreateResponseSchema,
+)
+async def create_director(
+    user_data: DirectorCreateRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    new_director = DirectorModel(**user_data.model_dump())
+
+    db.add(new_director)
+    try:
+        await db.commit()
+        await db.refresh(new_director)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Director with name '{user_data.name}' already exists.",
+        )
+
+    return new_director
