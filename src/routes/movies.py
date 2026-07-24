@@ -4,26 +4,83 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from starlette import status
 from starlette.requests import Request
 
-from database.models.movies import MovieModel
+from database.models.movies import DirectorModel, GenreModel, MovieModel, StarModel
 from database.session import get_db
-from routes.dependencies import PaginationParams, MovieFilterParams
+from routes.dependencies import MovieFilterParams, PaginationParams
 from schemas.movies import (
-    PaginatedResponseSchema,
-    MovieRetrieveResponseSchema,
+    DirectorResponseSchema,
+    GenreResponseSchema,
     MovieListResponseSchema,
+    MovieRetrieveResponseSchema,
+    PaginatedResponseSchema,
+    StarResponseSchema,
 )
 
-router = APIRouter(
-    prefix="/movies",
-)
+router = APIRouter()
+
+
+async def get_paginated_response(
+    model,
+    request: Request,
+    pagination: PaginationParams,
+    search: Optional[str],
+    db: AsyncSession,
+):
+    stmt = select(func.count(model.id))
+    if search:
+        stmt = stmt.where(model.name.ilike(f"%{search}%"))
+
+    total = await db.scalar(stmt) or 0
+
+    if total == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{model.__name__.replace('Model', 's')} not found.",
+        )
+
+    stmt = select(model).offset(pagination.offset).limit(pagination.limit)
+    if search:
+        stmt = stmt.where(model.name.ilike(f"%{search}%"))
+
+    results = list((await db.scalars(stmt)).all()) or []
+
+    has_next = (pagination.page * pagination.per_page) < total
+    has_prev = pagination.page > 1
+
+    next_page = None
+    if has_next:
+        next_page = str(
+            request.url.include_query_params(
+                page=pagination.page + 1,
+                per_page=pagination.per_page,
+            )
+        )
+
+    previous_page = None
+    if has_prev:
+        previous_page = str(
+            request.url.include_query_params(
+                page=pagination.page - 1,
+                per_page=pagination.per_page,
+            )
+        )
+
+    return PaginatedResponseSchema(
+        results=results,
+        total=total,
+        per_page=pagination.per_page,
+        page=pagination.page,
+        previous_page=previous_page,
+        next_page=next_page,
+    )
 
 
 @router.get(
-    "",
+    "/movies",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[MovieListResponseSchema],
 )
@@ -95,7 +152,7 @@ async def list_movies(
 
 
 @router.get(
-    "/{movie_uuid}",
+    "/movies/{movie_uuid}",
     status_code=status.HTTP_200_OK,
     response_model=MovieRetrieveResponseSchema,
 )
@@ -118,3 +175,45 @@ async def get_movie_details(movie_uuid: uuid.UUID, db: AsyncSession = Depends(ge
         )
 
     return movie
+
+
+@router.get(
+    "/genres",
+    status_code=status.HTTP_200_OK,
+    response_model=PaginatedResponseSchema[GenreResponseSchema],
+)
+async def list_genres(
+    request: Request,
+    pagination: PaginationParams = Depends(),
+    search: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_paginated_response(GenreModel, request, pagination, search, db)
+
+
+@router.get(
+    "/stars",
+    status_code=status.HTTP_200_OK,
+    response_model=PaginatedResponseSchema[StarResponseSchema],
+)
+async def list_stars(
+    request: Request,
+    pagination: PaginationParams = Depends(),
+    search: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_paginated_response(StarModel, request, pagination, search, db)
+
+
+@router.get(
+    "/directors",
+    status_code=status.HTTP_200_OK,
+    response_model=PaginatedResponseSchema[DirectorResponseSchema],
+)
+async def list_directors(
+    request: Request,
+    pagination: PaginationParams = Depends(),
+    search: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_paginated_response(DirectorModel, request, pagination, search, db)
