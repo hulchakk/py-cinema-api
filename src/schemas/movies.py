@@ -2,55 +2,95 @@ import uuid
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GenreBaseSchema(BaseModel):
     name: str
 
 
-class GenreCreateResponseSchema(GenreBaseSchema):
-    id: int
-
-
 class GenreCreateRequestSchema(GenreBaseSchema):
     pass
+
+
+class GenreUpdateRequestSchema(GenreBaseSchema):
+    pass
+
+
+class GenreResponseSchema(GenreBaseSchema):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+GenreCreateResponseSchema = GenreResponseSchema
+GenreUpdateResponseSchema = GenreResponseSchema
 
 
 class StarBaseSchema(BaseModel):
     name: str
 
 
-class StarCreateResponseSchema(StarBaseSchema):
-    id: int
-
-
 class StarCreateRequestSchema(StarBaseSchema):
     pass
+
+
+class StarUpdateRequestSchema(StarBaseSchema):
+    pass
+
+
+class StarResponseSchema(StarBaseSchema):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+StarCreateResponseSchema = StarResponseSchema
+StarUpdateResponseSchema = StarResponseSchema
 
 
 class DirectorBaseSchema(BaseModel):
     name: str
 
 
-class DirectorCreateResponseSchema(DirectorBaseSchema):
-    id: int
-
-
 class DirectorCreateRequestSchema(DirectorBaseSchema):
     pass
+
+
+class DirectorUpdateRequestSchema(DirectorBaseSchema):
+    pass
+
+
+class DirectorResponseSchema(DirectorBaseSchema):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+DirectorCreateResponseSchema = DirectorResponseSchema
+DirectorUpdateResponseSchema = DirectorResponseSchema
 
 
 class CertificationBaseSchema(BaseModel):
     name: str
 
 
-class CertificationCreateResponseSchema(CertificationBaseSchema):
-    id: int
-
-
 class CertificationCreateRequestSchema(CertificationBaseSchema):
     pass
+
+
+class CertificationUpdateRequestSchema(CertificationBaseSchema):
+    pass
+
+
+class CertificationResponseSchema(CertificationBaseSchema):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+CertificationCreateResponseSchema = CertificationResponseSchema
+CertificationUpdateResponseSchema = CertificationResponseSchema
 
 
 class MovieBaseSchema(BaseModel):
@@ -74,8 +114,29 @@ class MovieCreateRequestSchema(MovieBaseSchema):
     star_ids: list[int]
 
 
+class MovieUpdateRequestSchema(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=250)
+    year: Optional[int] = Field(default=None, ge=1888, le=2100)
+    time: Optional[int] = Field(default=None, gt=0)
+    imdb: Optional[float] = Field(default=None, ge=0.0, le=10.0)
+    votes: Optional[int] = Field(default=None, ge=0)
+    meta_score: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+    gross: Optional[float] = Field(default=None, ge=0.0)
+    description: Optional[str] = Field(default=None, min_length=10)
+    price: Optional[Decimal] = Field(
+        default=None, ge=0, max_digits=10, decimal_places=2
+    )
+    certification_id: Optional[int] = Field(default=None, gt=0)
+    genre_ids: Optional[list[int]] = None
+    director_ids: Optional[list[int]] = None
+    star_ids: Optional[list[int]] = None
+
+
 class MovieCreateResponseSchema(MovieBaseSchema):
     id: int
     uuid: uuid.UUID
 
     model_config = ConfigDict(from_attributes=True)
+
+
+MovieUpdateResponseSchema = MovieCreateResponseSchema
