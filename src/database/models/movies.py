@@ -30,49 +30,49 @@ movie_stars = Table(
 )
 
 
-class Genre(Base):
+class GenreModel(Base):
     __tablename__ = "genres"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-    movies: Mapped[list["Movie"]] = relationship(
+    movies: Mapped[list["MovieModel"]] = relationship(
         secondary=movie_genres, back_populates="genres"
     )
 
 
-class Star(Base):
+class StarModel(Base):
     __tablename__ = "stars"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-    movies: Mapped[list["Movie"]] = relationship(
+    movies: Mapped[list["MovieModel"]] = relationship(
         secondary=movie_stars, back_populates="stars"
     )
 
 
-class Director(Base):
+class DirectorModel(Base):
     __tablename__ = "directors"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-    movies: Mapped[list["Movie"]] = relationship(
+    movies: Mapped[list["MovieModel"]] = relationship(
         secondary=movie_directors, back_populates="directors"
     )
 
 
-class Certification(Base):
+class CertificationModel(Base):
     __tablename__ = "certifications"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-    movies: Mapped[list["Movie"]] = relationship(back_populates="certification")
+    movies: Mapped[list["MovieModel"]] = relationship(back_populates="certification")
 
 
-class Movie(Base):
+class MovieModel(Base):
     __tablename__ = "movies"
     __table_args__ = (
         UniqueConstraint("name", "year", "time", name="uq_movies_name_year_time"),
@@ -95,13 +95,13 @@ class Movie(Base):
         ForeignKey("certifications.id"), nullable=False
     )
 
-    certification: Mapped["Certification"] = relationship(back_populates="movies")
-    genres: Mapped[list["Genre"]] = relationship(
+    certification: Mapped["CertificationModel"] = relationship(back_populates="movies")
+    genres: Mapped[list["GenreModel"]] = relationship(
         secondary=movie_genres, back_populates="movies"
     )
-    directors: Mapped[list["Director"]] = relationship(
+    directors: Mapped[list["DirectorModel"]] = relationship(
         secondary=movie_directors, back_populates="movies"
     )
-    stars: Mapped[list["Star"]] = relationship(
+    stars: Mapped[list["StarModel"]] = relationship(
         secondary=movie_stars, back_populates="movies"
     )
