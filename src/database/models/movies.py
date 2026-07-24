@@ -1,4 +1,4 @@
-import uuid
+import uuid as Pyuuid
 from decimal import Decimal
 from typing import Optional
 
@@ -79,8 +79,8 @@ class MovieModel(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    uuid: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False
+    uuid: Mapped[Pyuuid.UUID] = mapped_column(
+        UUID(as_uuid=True), default=Pyuuid.uuid4, unique=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(250), nullable=False)
     year: Mapped[int] = mapped_column(nullable=False)
