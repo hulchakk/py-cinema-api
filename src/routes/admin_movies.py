@@ -375,7 +375,7 @@ async def delete_certification(
 
 
 @router.post(
-    "/movies",
+    "",
     status_code=status.HTTP_201_CREATED,
     response_model=MovieCreateResponseSchema,
 )
@@ -441,7 +441,7 @@ async def create_movie(
 
 
 @router.patch(
-    "/movies/{movie_id}",
+    "/{movie_id}",
     response_model=MovieUpdateResponseSchema,
 )
 async def update_movie(
@@ -513,7 +513,7 @@ async def update_movie(
 
 
 @router.delete(
-    "/movies/{movie_id}",
+    "/{movie_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
