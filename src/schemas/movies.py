@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from typing import Optional
 
@@ -75,6 +76,6 @@ class MovieCreateRequestSchema(MovieBaseSchema):
 
 class MovieCreateResponseSchema(MovieBaseSchema):
     id: int
-    uuid: str
+    uuid: uuid.UUID
 
     model_config = ConfigDict(from_attributes=True)

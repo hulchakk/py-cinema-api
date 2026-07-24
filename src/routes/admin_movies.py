@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi import Depends
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -134,7 +135,49 @@ async def create_certification(
 async def create_movie(
     user_data: MovieCreateRequestSchema, db: AsyncSession = Depends(get_db)
 ):
-    new_movie = MovieModel(**user_data.model_dump())
+    new_movie = MovieModel(
+        **user_data.model_dump(
+            exclude={
+                "genre_ids",
+                "director_ids",
+                "star_ids",
+            }
+        )
+    )
+
+    stmt = select(GenreModel).where(GenreModel.id.in_(user_data.genre_ids))
+    genre_results = await db.scalars(stmt)
+    genres = list(genre_results.all())
+
+    stmt = select(DirectorModel).where(DirectorModel.id.in_(user_data.director_ids))
+    director_results = await db.scalars(stmt)
+    directors = list(director_results.all())
+
+    stmt = select(StarModel).where(StarModel.id.in_(user_data.star_ids))
+    star_results = await db.scalars(stmt)
+    stars = list(star_results.all())
+
+    if len(genres) != len(user_data.genre_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more genres were not found",
+        )
+
+    if len(directors) != len(user_data.director_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more directors were not found",
+        )
+
+    if len(stars) != len(user_data.star_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more stars were not found",
+        )
+
+    new_movie.genres = genres
+    new_movie.directors = directors
+    new_movie.stars = stars
 
     db.add(new_movie)
     try:
