@@ -42,6 +42,11 @@ async def list_movies(
 
     total = await db.scalar(stmt) or 0
 
+    if total == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Movies not found."
+        )
+
     stmt = (
         select(MovieModel)
         .offset(pagination.offset)
@@ -57,11 +62,6 @@ async def list_movies(
         stmt = stmt.where(MovieModel.name.ilike(f"%{search}%"))
 
     results = list((await db.scalars(stmt)).all()) or []
-
-    if len(results) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Movies not found."
-        )
 
     has_next = (pagination.page * pagination.per_page) < total
     has_prev = pagination.page > 1
