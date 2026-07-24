@@ -9,7 +9,7 @@ from starlette.requests import Request
 
 from database.models.movies import MovieModel
 from database.session import get_db
-from routes.dependencies import PaginationParams
+from routes.dependencies import PaginationParams, MovieFilterParams
 from schemas.movies import (
     PaginatedResponseSchema,
     MovieRetrieveResponseSchema,
@@ -29,6 +29,7 @@ router = APIRouter(
 async def list_movies(
     request: Request,
     pagination: PaginationParams = Depends(),
+    filtering: MovieFilterParams = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(func.count(MovieModel.id))
@@ -43,7 +44,14 @@ async def list_movies(
             selectinload(MovieModel.genres),
         )
     )
+    stmt = filtering.apply_filters(stmt, MovieModel)
+
     results = list((await db.scalars(stmt)).all()) or []
+
+    if len(results) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Movies not found."
+        )
 
     has_next = (pagination.page * pagination.per_page) < total
     has_prev = pagination.page > 1
