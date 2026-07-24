@@ -4,7 +4,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
-from database.models.movies import GenreModel, StarModel, DirectorModel
+from database.models.movies import (
+    GenreModel,
+    StarModel,
+    DirectorModel,
+    CertificationModel,
+)
 from database.session import get_db
 from schemas.movies import (
     GenreCreateResponseSchema,
@@ -13,6 +18,8 @@ from schemas.movies import (
     StarCreateRequestSchema,
     DirectorCreateResponseSchema,
     DirectorCreateRequestSchema,
+    CertificationCreateResponseSchema,
+    CertificationCreateRequestSchema,
 )
 
 router = APIRouter(
@@ -87,6 +94,30 @@ async def create_director(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Director with name '{user_data.name}' already exists.",
+        )
+
+    return new_director
+
+
+@router.post(
+    "/certifications",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CertificationCreateResponseSchema,
+)
+async def create_certification(
+    user_data: CertificationCreateRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    new_director = CertificationModel(**user_data.model_dump())
+
+    db.add(new_director)
+    try:
+        await db.commit()
+        await db.refresh(new_director)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Certification with name '{user_data.name}' already exists.",
         )
 
     return new_director

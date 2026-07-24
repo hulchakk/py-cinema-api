@@ -35,3 +35,15 @@ class DirectorCreateResponseSchema(DirectorBaseSchema):
 
 class DirectorCreateRequestSchema(DirectorBaseSchema):
     pass
+
+
+class CertificationBaseSchema(BaseModel):
+    name: str
+
+
+class CertificationCreateResponseSchema(CertificationBaseSchema):
+    id: int
+
+
+class CertificationCreateRequestSchema(CertificationBaseSchema):
+    pass
