@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+from decimal import Decimal
+from typing import Optional
+
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class GenreBaseSchema(BaseModel):
@@ -47,3 +50,31 @@ class CertificationCreateResponseSchema(CertificationBaseSchema):
 
 class CertificationCreateRequestSchema(CertificationBaseSchema):
     pass
+
+
+class MovieBaseSchema(BaseModel):
+    name: str = Field(min_length=1, max_length=250)
+    year: int = Field(ge=1888, le=2100)
+    time: int = Field(gt=0)
+    imdb: float = Field(ge=0.0, le=10.0)
+    votes: int = Field(ge=0)
+    meta_score: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+    gross: Optional[float] = Field(default=None, ge=0.0)
+    description: str = Field(min_length=10)
+    price: Optional[Decimal] = Field(
+        default=None, ge=0, max_digits=10, decimal_places=2
+    )
+    certification_id: int = Field(gt=0)
+
+
+class MovieCreateRequestSchema(MovieBaseSchema):
+    genre_ids: list[int]
+    director_ids: list[int]
+    star_ids: list[int]
+
+
+class MovieCreateResponseSchema(MovieBaseSchema):
+    id: int
+    uuid: str
+
+    model_config = ConfigDict(from_attributes=True)

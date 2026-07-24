@@ -9,6 +9,7 @@ from database.models.movies import (
     StarModel,
     DirectorModel,
     CertificationModel,
+    MovieModel,
 )
 from database.session import get_db
 from schemas.movies import (
@@ -20,6 +21,8 @@ from schemas.movies import (
     DirectorCreateRequestSchema,
     CertificationCreateResponseSchema,
     CertificationCreateRequestSchema,
+    MovieCreateResponseSchema,
+    MovieCreateRequestSchema,
 )
 
 router = APIRouter(
@@ -121,3 +124,27 @@ async def create_certification(
         )
 
     return new_director
+
+
+@router.post(
+    "/movies",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MovieCreateResponseSchema,
+)
+async def create_movie(
+    user_data: MovieCreateRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    new_movie = MovieModel(**user_data.model_dump())
+
+    db.add(new_movie)
+    try:
+        await db.commit()
+        await db.refresh(new_movie)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Movie '{user_data.name} - {user_data.year}: {user_data.time}' already exists.",
+        )
+
+    return new_movie
