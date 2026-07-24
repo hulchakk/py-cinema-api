@@ -1,8 +1,8 @@
 import uuid
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, TypeVar, Generic
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class GenreBaseSchema(BaseModel):
@@ -140,3 +140,28 @@ class MovieCreateResponseSchema(MovieBaseSchema):
 
 
 MovieUpdateResponseSchema = MovieCreateResponseSchema
+
+
+class MovieRetrieveResponseSchema(MovieUpdateResponseSchema):
+    genres: list[str]
+    directors: list[str]
+    stars: list[str]
+
+    @field_validator("genres", "directors", "stars", mode="before")
+    @classmethod
+    def convert_models_to_names(cls, value):
+        if value and hasattr(value[0], "name"):
+            return [item.name for item in value]
+        return value
+
+
+T = TypeVar("T")
+
+
+class PaginatedResponseSchema(BaseModel, Generic[T]):
+    results: list[T]
+    page: int
+    per_page: int
+    total: int
+    next_page: Optional[str] = None
+    previous_page: Optional[str] = None
