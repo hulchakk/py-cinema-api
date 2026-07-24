@@ -28,6 +28,8 @@ class MovieFilterParams:
         time_from: Optional[int] = Query(default=None, ge=0),
         time_to: Optional[int] = Query(default=None, gt=0),
         genres: Optional[list[int]] = Query(default=None),
+        directors: Optional[list[int]] = Query(default=None),
+        stars: Optional[list[int]] = Query(default=None),
     ):
         self.year_from = year_from
         self.year_to = year_to
@@ -38,6 +40,8 @@ class MovieFilterParams:
         self.time_from = time_from
         self.time_to = time_to
         self.genres = genres
+        self.directors = directors
+        self.stars = stars
 
     def apply_filters(self, stmt, movie_model):
         if self.year_from:
@@ -64,6 +68,20 @@ class MovieFilterParams:
             stmt = stmt.where(
                 movie_model.genres.any(
                     movie_model.genres.property.mapper.class_.id.in_(self.genres)
+                )
+            )
+
+        if self.directors:
+            stmt = stmt.where(
+                movie_model.directors.any(
+                    movie_model.directors.property.mapper.class_.id.in_(self.directors)
+                )
+            )
+
+        if self.stars:
+            stmt = stmt.where(
+                movie_model.stars.any(
+                    movie_model.stars.property.mapper.class_.id.in_(self.stars)
                 )
             )
 
