@@ -1,0 +1,37 @@
+from fastapi import APIRouter, HTTPException
+from fastapi import Depends
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
+
+from database.models.movies import GenreModel
+from database.session import get_db
+from schemas.movies import GenreCreateResponseSchema, GenreCreateRequestSchema
+
+router = APIRouter(
+    prefix="/movies",
+)
+
+
+@router.post(
+    "/genres",
+    status_code=status.HTTP_201_CREATED,
+    response_model=GenreCreateResponseSchema,
+)
+async def create_genre(
+    user_data: GenreCreateRequestSchema, db: AsyncSession = Depends(get_db)
+):
+    new_genre = GenreModel(**user_data.model_dump())
+
+    db.add(new_genre)
+    try:
+        await db.commit()
+        await db.refresh(new_genre)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Genre with name '{user_data.name}' already exists.",
+        )
+
+    return new_genre
