@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import String, DateTime, ForeignKey, func, UniqueConstraint, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -10,6 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.models.base import Base
 from security.passwords import hash_password, verify_password
 from security.utils import generate_secure_token
+
+if TYPE_CHECKING:
+    from database.models.cart import CartModel
 
 
 class UserGroupEnum(str, enum.Enum):
@@ -49,6 +52,10 @@ class UserModel(Base):
         ForeignKey("user_groups.id", ondelete="CASCADE"), nullable=False
     )
     group: Mapped[UserGroupModel] = relationship(UserGroupModel, back_populates="users")
+
+    cart: Mapped[Optional["CartModel"]] = relationship(
+        "CartModel", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
     activation_token: Mapped[Optional["ActivationTokenModel"]] = relationship(
         "ActivationTokenModel", back_populates="user", cascade="all, delete-orphan"
