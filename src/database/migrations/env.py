@@ -15,7 +15,7 @@ sys.path.insert(0, str(BASE_DIR))
 from config.settings import settings
 from database.models.accounts import *
 from database.models.movies import *
-from database.models.cart import *
+from database.models.carts import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

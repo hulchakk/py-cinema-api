@@ -12,7 +12,7 @@ from security.passwords import hash_password, verify_password
 from security.utils import generate_secure_token
 
 if TYPE_CHECKING:
-    from database.models.cart import CartModel
+    from database.models.carts import CartModel
 
 
 class UserGroupEnum(str, enum.Enum):

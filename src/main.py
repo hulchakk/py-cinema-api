@@ -5,6 +5,7 @@ from routes import (
     accounts,
     admin_movies,
     movies,
+    carts,
 )
 from security.dependencies import allow_staff
 
@@ -25,4 +26,9 @@ app.include_router(
     prefix="/api/v1",
     tags=["Admin: movies"],
     dependencies=[Depends(allow_staff)],
+)
+app.include_router(
+    carts.router,
+    prefix="/api/v1",
+    tags=["User: carts"],
 )

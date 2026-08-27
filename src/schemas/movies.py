@@ -156,6 +156,9 @@ class MovieListResponseSchema(BaseModel):
     name: str
     year: int
     time: int
+    price: Optional[Decimal] = Field(
+        default=None, ge=0, max_digits=10, decimal_places=2
+    )
     imdb: float
     votes: int
     meta_score: Optional[float] = None
