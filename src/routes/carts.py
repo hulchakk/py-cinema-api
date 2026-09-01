@@ -79,3 +79,45 @@ async def add_item_to_cart(
     await db.commit()
 
     return MessageResponseSchema(message="Item added successfully")
+
+
+@router.delete(
+    "",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def clear_cart(
+    user: UserModel = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    stmt = select(CartModel).where(CartModel.user_id == user.id)
+    cart = await db.scalar(stmt)
+
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    await db.delete(cart)
+    await db.commit()
+
+    return
+
+
+@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_item_from_cart(
+    item_id: int,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(CartItemModel)
+        .join(CartModel)
+        .where(CartItemModel.id == item_id, CartModel.user_id == user.id)
+    )
+
+    item = await db.scalar(stmt)
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    await db.delete(item)
+    await db.commit()
+
+    return
