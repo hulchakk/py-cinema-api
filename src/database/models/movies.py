@@ -1,12 +1,16 @@
 import uuid as Pyuuid
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, List
 
 from sqlalchemy import Column, Table, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.models.base import Base
+
+if TYPE_CHECKING:
+    from database.models.orders import OrderItemModel
+
 
 movie_genres = Table(
     "movie_genres",
@@ -104,4 +108,8 @@ class MovieModel(Base):
     )
     stars: Mapped[list["StarModel"]] = relationship(
         secondary=movie_stars, back_populates="movies"
+    )
+
+    order_items: Mapped[List["OrderItemModel"]] = relationship(
+        "OrderItemModel", back_populates="movie"
     )

@@ -13,6 +13,7 @@ from security.utils import generate_secure_token
 
 if TYPE_CHECKING:
     from database.models.carts import CartModel
+    from database.models.orders import OrderModel
 
 
 class UserGroupEnum(str, enum.Enum):
@@ -55,6 +56,9 @@ class UserModel(Base):
 
     cart: Mapped[Optional["CartModel"]] = relationship(
         "CartModel", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    orders: Mapped[List["OrderModel"]] = relationship(
+        "OrderModel", back_populates="user", cascade="all, delete-orphan"
     )
 
     activation_token: Mapped[Optional["ActivationTokenModel"]] = relationship(
