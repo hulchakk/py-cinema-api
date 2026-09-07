@@ -13,7 +13,7 @@ from database.models.orders import OrderModel, OrderItemModel
 from database.session import get_db
 from routes.dependencies import PaginationParams
 from schemas.accounts import MessageResponseSchema
-from schemas.orders import OrderListResponseSchema
+from schemas.orders import OrderListResponseSchema, OrderRetrieveResponseSchema
 from schemas.pagination import PaginatedResponseSchema
 from security.dependencies import get_current_user
 
@@ -129,3 +129,28 @@ async def get_user_orders(
         previous_page=previous_page,
         next_page=next_page,
     )
+
+
+@router.get(
+    "/{order_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=OrderRetrieveResponseSchema,
+)
+async def get_order_details(
+    order_id: int,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(OrderModel)
+        .where(OrderModel.id == order_id, OrderModel.user_id == user.id)
+        .options(selectinload(OrderModel.items).joinedload(OrderItemModel.movie))
+    )
+    order = await db.scalar(stmt)
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found."
+        )
+
+    return order

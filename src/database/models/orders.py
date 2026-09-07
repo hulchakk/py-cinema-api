@@ -56,3 +56,7 @@ class OrderItemModel(Base):
 
     order: Mapped["OrderModel"] = relationship("OrderModel", back_populates="items")
     movie: Mapped["MovieModel"] = relationship("MovieModel")
+
+    @property
+    def movie_name(self) -> str:
+        return self.movie.name
