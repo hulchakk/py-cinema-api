@@ -16,9 +16,9 @@ from schemas.movies import (
     GenreResponseSchema,
     MovieListResponseSchema,
     MovieRetrieveResponseSchema,
-    PaginatedResponseSchema,
     StarResponseSchema,
 )
+from schemas.pagination import PaginatedResponseSchema
 
 router = APIRouter()
 

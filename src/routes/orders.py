@@ -1,16 +1,20 @@
 from decimal import Decimal
 
 from fastapi import Depends, APIRouter, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
+from starlette.requests import Request
 
 from database.models.accounts import UserModel
 from database.models.carts import CartModel, CartItemModel
 from database.models.orders import OrderModel, OrderItemModel
 from database.session import get_db
+from routes.dependencies import PaginationParams
 from schemas.accounts import MessageResponseSchema
+from schemas.orders import OrderListResponseSchema
+from schemas.pagination import PaginatedResponseSchema
 from security.dependencies import get_current_user
 
 router = APIRouter(
@@ -65,4 +69,63 @@ async def create_order(
 
     return MessageResponseSchema(
         message="Successfully created order",
+    )
+
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=PaginatedResponseSchema[OrderListResponseSchema],
+)
+async def get_user_orders(
+    request: Request,
+    pagination: PaginationParams = Depends(),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(func.count(OrderModel.id)).where(OrderModel.user_id == user.id)
+    total = await db.scalar(stmt) or 0
+
+    if total == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Orders not found."
+        )
+
+    stmt = (
+        select(OrderModel)
+        .where(OrderModel.user_id == user.id)
+        .offset(pagination.offset)
+        .limit(pagination.limit)
+    )
+
+    results = list((await db.scalars(stmt)).all()) or []
+
+    has_next = (pagination.page * pagination.per_page) < total
+    has_prev = pagination.page > 1
+
+    next_page = None
+    if has_next:
+        next_page = str(
+            request.url.include_query_params(
+                page=pagination.page + 1,
+                per_page=pagination.per_page,
+            )
+        )
+
+    previous_page = None
+    if has_prev:
+        previous_page = str(
+            request.url.include_query_params(
+                page=pagination.page - 1,
+                per_page=pagination.per_page,
+            )
+        )
+
+    return PaginatedResponseSchema(
+        results=results,
+        total=total,
+        per_page=pagination.per_page,
+        page=pagination.page,
+        previous_page=previous_page,
+        next_page=next_page,
     )

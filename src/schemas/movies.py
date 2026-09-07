@@ -1,6 +1,6 @@
 import uuid
 from decimal import Decimal
-from typing import Optional, TypeVar, Generic
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -173,15 +173,3 @@ class MovieListResponseSchema(BaseModel):
         if value and hasattr(value[0], "name"):
             return [item.name for item in value]
         return value
-
-
-T = TypeVar("T")
-
-
-class PaginatedResponseSchema(BaseModel, Generic[T]):
-    results: list[T]
-    page: int
-    per_page: int
-    total: int
-    next_page: Optional[str] = None
-    previous_page: Optional[str] = None
