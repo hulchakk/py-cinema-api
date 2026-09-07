@@ -9,7 +9,7 @@ from starlette.requests import Request
 
 from database.models.accounts import UserModel
 from database.models.carts import CartModel, CartItemModel
-from database.models.orders import OrderModel, OrderItemModel
+from database.models.orders import OrderModel, OrderItemModel, OrderStatusEnum
 from database.session import get_db
 from routes.dependencies import PaginationParams
 from schemas.accounts import MessageResponseSchema
@@ -154,3 +154,39 @@ async def get_order_details(
         )
 
     return order
+
+
+@router.delete(
+    "/{order_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=MessageResponseSchema,
+)
+async def cancel_order(
+    order_id: int,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(OrderModel).where(
+        OrderModel.id == order_id,
+        OrderModel.user_id == user.id,
+    )
+    order = await db.scalar(stmt)
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found."
+        )
+
+    if order.status != OrderStatusEnum.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel order with status '{order.status.value}'. Only pending orders can be canceled.",
+        )
+
+    order.status = OrderStatusEnum.CANCELED
+
+    await db.commit()
+
+    return MessageResponseSchema(
+        message="Successfully canceled order.",
+    )
