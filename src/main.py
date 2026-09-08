@@ -7,6 +7,7 @@ from routes import (
     movies,
     carts,
     orders,
+    payments,
 )
 from security.dependencies import allow_staff
 
@@ -37,4 +38,9 @@ app.include_router(
     orders.router,
     prefix="/api/v1",
     tags=["User: orders"],
+)
+app.include_router(
+    payments.router,
+    prefix="/api/v1",
+    tags=["User: payments"],
 )
