@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, HttpUrl
 
 from database.models.orders import OrderStatusEnum
 
@@ -27,3 +27,12 @@ class OrderItemResponseSchema(BaseModel):
 
 class OrderRetrieveResponseSchema(OrderListResponseSchema):
     items: List[OrderItemResponseSchema]
+
+
+class CreateCheckoutSessionResponseSchema(BaseModel):
+    checkout_url: str
+
+
+class CreateCheckoutSessionRequestSchema(BaseModel):
+    success_url: HttpUrl
+    cancel_url: HttpUrl

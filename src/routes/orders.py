@@ -10,12 +10,20 @@ from starlette.requests import Request
 from database.models.accounts import UserModel
 from database.models.carts import CartModel, CartItemModel
 from database.models.orders import OrderModel, OrderItemModel, OrderStatusEnum
+from database.models.payments import PaymentModel
 from database.session import get_db
 from routes.dependencies import PaginationParams
 from schemas.accounts import MessageResponseSchema
-from schemas.orders import OrderListResponseSchema, OrderRetrieveResponseSchema
+from schemas.orders import (
+    OrderListResponseSchema,
+    OrderRetrieveResponseSchema,
+    CreateCheckoutSessionResponseSchema,
+    CreateCheckoutSessionRequestSchema,
+)
 from schemas.pagination import PaginatedResponseSchema
 from security.dependencies import get_current_user
+from services.payments.interfaces import PaymentInterface
+from services.payments.stripe import StripePaymentService
 
 router = APIRouter(
     prefix="/orders",
@@ -189,4 +197,45 @@ async def cancel_order(
 
     return MessageResponseSchema(
         message="Successfully canceled order.",
+    )
+
+
+@router.post(
+    "/{order_id}/pay",
+    status_code=status.HTTP_200_OK,
+    response_model=CreateCheckoutSessionResponseSchema,
+)
+async def create_checkout_session(
+    order_id: int,
+    data: CreateCheckoutSessionRequestSchema,
+    payment_service: PaymentInterface = Depends(StripePaymentService),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(OrderModel).where(
+        OrderModel.id == order_id, OrderModel.user_id == user.id
+    )
+
+    order = await db.scalar(stmt)
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found."
+        )
+
+    if order.status != OrderStatusEnum.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Order {order.id} cannot be paid because it is already {order.status.value.lower()}.",
+        )
+
+    checkout_url = await payment_service.create_checkout_session(
+        order_id=order_id,
+        total_amount=order.total_amount,
+        success_url=str(data.success_url),
+        cancel_url=str(data.cancel_url),
+    )
+
+    return CreateCheckoutSessionResponseSchema(
+        checkout_url=checkout_url,
     )
