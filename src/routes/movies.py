@@ -19,6 +19,7 @@ from schemas.movies import (
     StarResponseSchema,
 )
 from schemas.pagination import PaginatedResponseSchema
+from utils.paginator import paginate_response
 
 router = APIRouter()
 
@@ -48,34 +49,8 @@ async def get_paginated_response(
 
     results = list((await db.scalars(stmt)).all()) or []
 
-    has_next = (pagination.page * pagination.per_page) < total
-    has_prev = pagination.page > 1
-
-    next_page = None
-    if has_next:
-        next_page = str(
-            request.url.include_query_params(
-                page=pagination.page + 1,
-                per_page=pagination.per_page,
-            )
-        )
-
-    previous_page = None
-    if has_prev:
-        previous_page = str(
-            request.url.include_query_params(
-                page=pagination.page - 1,
-                per_page=pagination.per_page,
-            )
-        )
-
-    return PaginatedResponseSchema(
-        results=results,
-        total=total,
-        per_page=pagination.per_page,
-        page=pagination.page,
-        previous_page=previous_page,
-        next_page=next_page,
+    return paginate_response(
+        request=request, results=results, total=total, pagination=pagination
     )
 
 
