@@ -10,7 +10,6 @@ from starlette.requests import Request
 from database.models.accounts import UserModel
 from database.models.carts import CartModel, CartItemModel
 from database.models.orders import OrderModel, OrderItemModel, OrderStatusEnum
-from database.models.payments import PaymentModel
 from database.session import get_db
 from routes.dependencies import PaginationParams
 from schemas.accounts import MessageResponseSchema
@@ -24,6 +23,7 @@ from schemas.pagination import PaginatedResponseSchema
 from security.dependencies import get_current_user
 from services.payments.interfaces import PaymentInterface
 from services.payments.stripe import StripePaymentService
+from utils.paginator import paginate_response
 
 router = APIRouter(
     prefix="/orders",
@@ -108,34 +108,8 @@ async def get_user_orders(
 
     results = list((await db.scalars(stmt)).all()) or []
 
-    has_next = (pagination.page * pagination.per_page) < total
-    has_prev = pagination.page > 1
-
-    next_page = None
-    if has_next:
-        next_page = str(
-            request.url.include_query_params(
-                page=pagination.page + 1,
-                per_page=pagination.per_page,
-            )
-        )
-
-    previous_page = None
-    if has_prev:
-        previous_page = str(
-            request.url.include_query_params(
-                page=pagination.page - 1,
-                per_page=pagination.per_page,
-            )
-        )
-
-    return PaginatedResponseSchema(
-        results=results,
-        total=total,
-        per_page=pagination.per_page,
-        page=pagination.page,
-        previous_page=previous_page,
-        next_page=next_page,
+    return paginate_response(
+        request=request, results=results, total=total, pagination=pagination
     )
 
 
