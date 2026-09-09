@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from fastapi import Depends, APIRouter, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select, func, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
@@ -10,6 +10,7 @@ from starlette.requests import Request
 from database.models.accounts import UserModel
 from database.models.carts import CartModel, CartItemModel
 from database.models.orders import OrderModel, OrderItemModel, OrderStatusEnum
+from database.models.payments import PaymentItemModel, PaymentModel, PaymentStatusEnum
 from database.session import get_db
 from routes.dependencies import PaginationParams
 from schemas.accounts import MessageResponseSchema
@@ -48,27 +49,66 @@ async def create_order(
 
     if not cart or len(cart.items) == 0:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found."
+        )
+
+    cart_movie_ids = [item.movie_id for item in cart.items]
+
+    purchased_stmt = select(
+        exists().where(
+            PaymentItemModel.movie_id.in_(cart_movie_ids),
+            PaymentItemModel.payment.has(
+                PaymentModel.user_id == user.id,
+                PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+            ),
+        )
+    )
+    has_purchased_movies = await db.scalar(purchased_stmt)
+
+    if has_purchased_movies:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Your cart contains movies that you have already purchased.",
+        )
+
+    pending_order_stmt = select(
+        exists().where(
+            OrderItemModel.movie_id.in_(cart_movie_ids),
+            OrderItemModel.order.has(
+                OrderModel.user_id == user.id,
+                OrderModel.status == OrderStatusEnum.PENDING,
+            ),
+        )
+    )
+    has_pending_conflict = await db.scalar(pending_order_stmt)
+
+    if has_pending_conflict:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You already have a pending order containing one or more of these movies.",
         )
 
     order = OrderModel(
         user_id=user.id,
+        status=OrderStatusEnum.PENDING,
     )
 
     db.add(order)
     await db.flush()
 
-    total_amount = Decimal("0.0")
+    total_amount = Decimal("0.00")
 
     for cart_item in cart.items:
+        current_price = Decimal(str(cart_item.movie.price))
+
         order_item = OrderItemModel(
             order_id=order.id,
             movie_id=cart_item.movie_id,
-            price_at_order=cart_item.movie.price,
+            price_at_order=current_price,
         )
 
         db.add(order_item)
-        total_amount += cart_item.movie.price
+        total_amount += current_price
 
     order.total_amount = total_amount
 
