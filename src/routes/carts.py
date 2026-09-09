@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, APIRouter
-from sqlalchemy import select
+from sqlalchemy import select, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 from starlette import status
@@ -7,6 +7,7 @@ from starlette import status
 from database.models.accounts import UserModel
 from database.models.carts import CartModel, CartItemModel
 from database.models.movies import MovieModel
+from database.models.payments import PaymentItemModel, PaymentModel, PaymentStatusEnum
 from database.session import get_db
 from schemas.accounts import MessageResponseSchema
 from schemas.carts import CartResponseSchema
@@ -52,6 +53,23 @@ async def add_item_to_cart(
 
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
+
+    stmt = select(
+        exists().where(
+            PaymentItemModel.movie_id == movie_id,
+            PaymentItemModel.payment.has(PaymentModel.user_id == user.id),
+            PaymentItemModel.payment.has(
+                PaymentModel.status == PaymentStatusEnum.SUCCESSFUL
+            ),
+        )
+    )
+    is_purchased = await db.scalar(stmt)
+
+    if is_purchased:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie is already is purchased.",
+        )
 
     stmt = (
         select(CartModel)
