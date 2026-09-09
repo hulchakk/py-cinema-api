@@ -1,18 +1,107 @@
 import stripe
 from fastapi import APIRouter, Header, HTTPException, Depends, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.requests import Request
 
 from config.settings import settings
+from database.models.accounts import UserModel
 from database.models.orders import OrderModel, OrderStatusEnum
 from database.models.payments import PaymentModel, PaymentStatusEnum, PaymentItemModel
 from database.session import get_db
+from routes.dependencies import PaginationParams
+from schemas.pagination import PaginatedResponseSchema
+from schemas.payments import PaymentListResponseSchema, PaymentRetrieveResponseSchema
+from security.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/payments",
 )
+
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=PaginatedResponseSchema[PaymentListResponseSchema],
+)
+async def get_user_payments(
+    request: Request,
+    pagination: PaginationParams = Depends(),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(func.count(PaymentModel.id)).where(PaymentModel.user_id == user.id)
+    total = await db.scalar(stmt) or 0
+
+    if total == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Payments not found."
+        )
+
+    stmt = (
+        select(PaymentModel)
+        .where(PaymentModel.user_id == user.id)
+        .offset(pagination.offset)
+        .limit(pagination.limit)
+    )
+
+    results = list((await db.scalars(stmt)).all()) or []
+
+    has_next = (pagination.page * pagination.per_page) < total
+    has_prev = pagination.page > 1
+
+    next_page = None
+    if has_next:
+        next_page = str(
+            request.url.include_query_params(
+                page=pagination.page + 1,
+                per_page=pagination.per_page,
+            )
+        )
+
+    previous_page = None
+    if has_prev:
+        previous_page = str(
+            request.url.include_query_params(
+                page=pagination.page - 1,
+                per_page=pagination.per_page,
+            )
+        )
+
+    return PaginatedResponseSchema(
+        results=results,
+        total=total,
+        per_page=pagination.per_page,
+        page=pagination.page,
+        previous_page=previous_page,
+        next_page=next_page,
+    )
+
+
+@router.get(
+    "/{payment_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=PaymentRetrieveResponseSchema,
+)
+async def get_payment_details(
+    payment_id: int,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(PaymentModel)
+        .where(PaymentModel.id == payment_id, PaymentModel.user_id == user.id)
+        .options(selectinload(PaymentModel.items).joinedload(PaymentItemModel.movie))
+    )
+    payment = await db.scalar(stmt)
+
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found."
+        )
+
+    return payment
 
 
 @router.post("/webhook")
