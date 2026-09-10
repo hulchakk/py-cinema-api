@@ -147,6 +147,7 @@ async def update_user_profile(
         info=profile.info,
     )
 
+
 @router.post(
     "/avatar",
     status_code=status.HTTP_200_OK,

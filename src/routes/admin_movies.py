@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, exists
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -11,6 +11,7 @@ from database.models.movies import (
     MovieModel,
     StarModel,
 )
+from database.models.payments import PaymentItemModel, PaymentModel, PaymentStatusEnum
 from database.session import get_db
 from schemas.movies import (
     CertificationCreateRequestSchema,
@@ -524,6 +525,23 @@ async def delete_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Movie with id {movie_id} not found.",
+        )
+
+    stmt = select(
+        exists()
+        .select_from(PaymentItemModel)
+        .join(PaymentModel, PaymentItemModel.payment_id == PaymentModel.id)
+        .where(
+            PaymentItemModel.movie_id == movie_id,
+            PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+        )
+    )
+    has_purchases = await db.scalar(stmt)
+
+    if has_purchases:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete movie as it has already been purchased by users.",
         )
 
     try:
