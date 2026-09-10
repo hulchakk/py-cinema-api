@@ -24,7 +24,7 @@ def get_jwt_auth_manager(
 
 
 def get_accounts_email_notificator(
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ) -> EmailSenderInterface:
     return EmailSender(
         hostname=settings.EMAIL_HOST,
