@@ -65,6 +65,27 @@ class S3StorageClient(S3StorageInterface):
         except BotoCoreError as e:
             raise S3FileUploadError(f"Failed to upload to S3 storage: {str(e)}") from e
 
+    async def delete_file(self, file_name: str) -> None:
+        """
+        Asynchronously delete a file from the S3-compatible storage.
+
+        Args:
+            file_name (str): The name of the file to be deleted from the bucket.
+
+        Raises:
+            S3ConnectionError: If there is a connection error with S3.
+        """
+        try:
+            async with self._session.client(
+                "s3", endpoint_url=self._endpoint_url
+            ) as client:
+                await client.delete_object(
+                    Bucket=self._bucket_name,
+                    Key=file_name,
+                )
+        except (ConnectionError, HTTPClientError, NoCredentialsError) as e:
+            raise S3ConnectionError(f"Failed to connect to S3 storage: {str(e)}") from e
+
     async def get_file_url(self, file_name: str) -> str:
         """
         Generate a public URL for a file stored in the S3-compatible storage.
