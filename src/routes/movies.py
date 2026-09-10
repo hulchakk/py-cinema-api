@@ -58,11 +58,29 @@ async def get_paginated_response(
     "/movies",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[MovieListResponseSchema],
+    summary="List movies",
+    description="Retrieves a paginated list of movies with optional filtering by various parameters and search by movie name. Includes movie certification and genres in the response.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of movies retrieved successfully.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No movies match the specified criteria.",
+            "content": {
+                "application/json": {"example": {"detail": "Movies not found."}}
+            },
+        },
+    },
 )
 async def list_movies(
     request: Request,
     pagination: PaginationParams = Depends(),
-    search: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(
+        default=None,
+        title="Search Query",
+        description="Search for movies by name (case-insensitive partial match).",
+        examples=["Inception"],
+    ),
     filtering: MovieFilterParams = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
@@ -104,8 +122,30 @@ async def list_movies(
     "/movies/{movie_uuid}",
     status_code=status.HTTP_200_OK,
     response_model=MovieRetrieveResponseSchema,
+    summary="Get movie details",
+    description="Retrieves detailed information about a specific movie by its UUID, including certification, genres, directors, and stars.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": MovieRetrieveResponseSchema,
+            "description": "Detailed movie information retrieved successfully.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Movie not found.",
+            "content": {
+                "application/json": {"example": {"detail": "Movie not found."}}
+            },
+        },
+    },
 )
-async def get_movie_details(movie_uuid: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_movie_details(
+    movie_uuid: uuid.UUID = Query(
+        ...,
+        title="Movie UUID",
+        description="The unique identifier (UUID) of the movie.",
+        examples=["123e4567-e89b-12d3-a456-426614174000"],
+    ),
+    db: AsyncSession = Depends(get_db),
+):
     stmt = (
         select(MovieModel)
         .where(MovieModel.uuid == movie_uuid)
@@ -130,11 +170,29 @@ async def get_movie_details(movie_uuid: uuid.UUID, db: AsyncSession = Depends(ge
     "/genres",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[GenreResponseSchema],
+    summary="List movie genres",
+    description="Retrieves a paginated list of movie genres with optional search filtering by genre name.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of genres retrieved successfully.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No genres found.",
+            "content": {
+                "application/json": {"example": {"detail": "Genres not found."}}
+            },
+        },
+    },
 )
 async def list_genres(
     request: Request,
     pagination: PaginationParams = Depends(),
-    search: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(
+        default=None,
+        title="Search Query",
+        description="Search for genres by name (case-insensitive partial match).",
+        examples=["Action"],
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_paginated_response(GenreModel, request, pagination, search, db)
@@ -144,11 +202,29 @@ async def list_genres(
     "/stars",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[StarResponseSchema],
+    summary="List movie stars",
+    description="Retrieves a paginated list of actors/stars with optional search filtering by star name.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of stars retrieved successfully.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No stars found.",
+            "content": {
+                "application/json": {"example": {"detail": "Stars not found."}}
+            },
+        },
+    },
 )
 async def list_stars(
     request: Request,
     pagination: PaginationParams = Depends(),
-    search: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(
+        default=None,
+        title="Search Query",
+        description="Search for stars/actors by name (case-insensitive partial match).",
+        examples=["Leonardo DiCaprio"],
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_paginated_response(StarModel, request, pagination, search, db)
@@ -158,11 +234,29 @@ async def list_stars(
     "/directors",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[DirectorResponseSchema],
+    summary="List movie directors",
+    description="Retrieves a paginated list of movie directors with optional search filtering by director name.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of directors retrieved successfully.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No directors found.",
+            "content": {
+                "application/json": {"example": {"detail": "Directors not found."}}
+            },
+        },
+    },
 )
 async def list_directors(
     request: Request,
     pagination: PaginationParams = Depends(),
-    search: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(
+        default=None,
+        title="Search Query",
+        description="Search for directors by name (case-insensitive partial match).",
+        examples=["Christopher Nolan"],
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_paginated_response(DirectorModel, request, pagination, search, db)
