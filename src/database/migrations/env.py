@@ -18,6 +18,7 @@ from database.models.movies import *
 from database.models.carts import *
 from database.models.orders import *
 from database.models.payments import *
+from database.models.profiles import *
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
