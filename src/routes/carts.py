@@ -18,7 +18,26 @@ router = APIRouter(
 )
 
 
-@router.get("", status_code=status.HTTP_200_OK, response_model=CartResponseSchema)
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=CartResponseSchema,
+    summary="Get user cart",
+    description="Retrieves the current user's shopping cart along with items, nested movie details, genres, and certification.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": CartResponseSchema,
+            "description": "User cart retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Cart not found for the user.",
+            "content": {"application/json": {"example": {"detail": "Cart not found"}}},
+        },
+    },
+)
 async def get_user_cart(
     user: UserModel = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
@@ -42,7 +61,42 @@ async def get_user_cart(
 
 
 @router.post(
-    "/items", status_code=status.HTTP_201_CREATED, response_model=MessageResponseSchema
+    "/items",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MessageResponseSchema,
+    summary="Add item to cart",
+    description="Adds a movie to the user's cart. Checks if the movie exists, if it has already been purchased by the user, or if it is already present in the cart.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": MessageResponseSchema,
+            "description": "Item added to cart successfully.",
+            "content": {
+                "application/json": {"example": {"message": "Item added successfully"}}
+            },
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Movie already purchased or already in the cart.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "already_purchased": {
+                            "value": {"detail": "Movie is already is purchased."}
+                        },
+                        "already_in_cart": {
+                            "value": {"detail": "Movie is already in the cart"}
+                        },
+                    }
+                }
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Movie not found.",
+            "content": {"application/json": {"example": {"detail": "Movie not found"}}},
+        },
+    },
 )
 async def add_item_to_cart(
     movie_id: int,
@@ -102,6 +156,20 @@ async def add_item_to_cart(
 @router.delete(
     "",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Clear cart",
+    description="Completely removes the user's shopping cart and all items within it.",
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Cart successfully cleared.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Cart not found.",
+            "content": {"application/json": {"example": {"detail": "Cart not found"}}},
+        },
+    },
 )
 async def clear_cart(
     user: UserModel = Depends(get_current_user), db: AsyncSession = Depends(get_db)
@@ -118,7 +186,24 @@ async def clear_cart(
     return
 
 
-@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/items/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove item from cart",
+    description="Removes a specific item from the user's shopping cart by item ID.",
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Item successfully removed from cart.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Item not found in user's cart.",
+            "content": {"application/json": {"example": {"detail": "Item not found"}}},
+        },
+    },
+)
 async def remove_item_from_cart(
     item_id: int,
     user: UserModel = Depends(get_current_user),
