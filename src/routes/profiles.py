@@ -2,15 +2,22 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy import select, exists
+from sqlalchemy import select, exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from starlette import status
+from starlette.requests import Request
 
 from config.dependencies import get_s3_storage_client
 from database.models.accounts import UserModel
+from database.models.movies import MovieModel
+from database.models.payments import PaymentItemModel, PaymentModel, PaymentStatusEnum
 from database.models.profiles import UserProfileModel
 from database.session import get_db
 from exceptions.storages import S3FileUploadError
+from routes.dependencies import PaginationParams
+from schemas.movies import MovieListResponseSchema
+from schemas.pagination import PaginatedResponseSchema
 from schemas.profiles import (
     UserProfileRetrieveResponseSchema,
     UserProfileCreateUpdateRequestSchema,
@@ -18,6 +25,7 @@ from schemas.profiles import (
 )
 from security.dependencies import get_current_user
 from services.storages.interfaces import S3StorageInterface
+from utils.paginator import paginate_response
 
 router = APIRouter(
     prefix="/me",
@@ -61,6 +69,57 @@ async def get_user_profile(
         gender=profile.gender,
         date_of_birth=profile.date_of_birth,
         info=profile.info,
+    )
+
+
+@router.get(
+    "/library",
+    status_code=status.HTTP_200_OK,
+    response_model=PaginatedResponseSchema[MovieListResponseSchema],
+)
+async def get_users_movies(
+    request: Request,
+    pagination: PaginationParams = Depends(),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(func.count(func.distinct(MovieModel.id)))
+        .select_from(MovieModel)
+        .join(PaymentItemModel, PaymentItemModel.movie_id == MovieModel.id)
+        .join(PaymentModel, PaymentItemModel.payment_id == PaymentModel.id)
+        .where(
+            PaymentModel.user_id == user.id,
+            PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+        )
+    )
+    total = await db.scalar(stmt) or 0
+
+    if total == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="You don't have any movies yet.",
+        )
+
+    stmt = (
+        select(MovieModel)
+        .join(PaymentItemModel, PaymentItemModel.movie_id == MovieModel.id)
+        .join(PaymentModel, PaymentItemModel.payment_id == PaymentModel.id)
+        .where(
+            PaymentModel.user_id == user.id,
+            PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+        )
+        .offset(pagination.offset)
+        .limit(pagination.limit)
+        .options(
+            selectinload(MovieModel.certification),
+            selectinload(MovieModel.genres),
+        )
+    )
+    results = (await db.scalars(stmt)).all() or []
+
+    return paginate_response(
+        request=request, results=results, total=total, pagination=pagination
     )
 
 

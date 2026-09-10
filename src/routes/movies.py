@@ -84,7 +84,7 @@ async def list_movies(
         .offset(pagination.offset)
         .limit(pagination.limit)
         .options(
-            joinedload(MovieModel.certification),
+            selectinload(MovieModel.certification),
             selectinload(MovieModel.genres),
         )
     )
