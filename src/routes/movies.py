@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -138,7 +138,7 @@ async def list_movies(
     },
 )
 async def get_movie_details(
-    movie_uuid: uuid.UUID = Query(
+    movie_uuid: uuid.UUID = Path(
         ...,
         title="Movie UUID",
         description="The unique identifier (UUID) of the movie.",
