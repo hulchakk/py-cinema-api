@@ -71,6 +71,7 @@ async def get_user_profile(
 )
 async def create_user_profile(
     profile_data: UserProfileCreateUpdateRequestSchema,
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -96,7 +97,16 @@ async def create_user_profile(
     await db.commit()
     await db.refresh(profile)
 
-    return profile
+    avatar_url = storage.get_file_url(profile.avatar) if profile.avatar else None
+
+    return UserProfileRetrieveResponseSchema(
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        avatar_url=avatar_url,
+        gender=profile.gender,
+        date_of_birth=profile.date_of_birth,
+        info=profile.info,
+    )
 
 
 @router.patch(
@@ -106,6 +116,7 @@ async def create_user_profile(
 )
 async def update_user_profile(
     profile_data: UserProfileCreateUpdateRequestSchema,
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -125,8 +136,16 @@ async def update_user_profile(
     await db.commit()
     await db.refresh(profile)
 
-    return profile
+    avatar_url = storage.get_file_url(profile.avatar) if profile.avatar else None
 
+    return UserProfileRetrieveResponseSchema(
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        avatar_url=avatar_url,
+        gender=profile.gender,
+        date_of_birth=profile.date_of_birth,
+        info=profile.info,
+    )
 
 @router.post(
     "/avatar",
