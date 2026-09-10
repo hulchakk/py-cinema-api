@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <h2>Order Confirmation #{{ order_id }}</h2>
+  <p>Hello, <strong>{{ email }}</strong>. Here are the details of your order:</p>
+
+  <h3>Order Summary:</h3>
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <thead>
+      <tr style="background-color: #f8f9fa;">
+        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Movie Title</th>
+        <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in order_details.get('items', []) %}
+      <tr>
+        <td style="border: 1px solid #ddd; padding: 8px;">{{ item.title }}</td>
+        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{{ item.price }} USD</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p><strong>Total Amount: {{ order_details.get('total_amount', 0) }} USD</strong></p>
+</body>
+</html>
