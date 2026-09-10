@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     BASE_DIR: Path = Path(__file__).parent.parent
     DB_URL: str = "sqlite+aiosqlite:///db.sqlite3"
 
+    REDIS_URL: str = "redis://redis:6379"
+
     SECRET_KEY_ACCESS: str = "super-secret-access-key-change-me"
     SECRET_KEY_REFRESH: str = "super-secret-refresh-key-change-me"
     JWT_SIGNING_ALGORITHM: str = "HS256"
