@@ -45,6 +45,22 @@ router = APIRouter(
     "/genres",
     status_code=status.HTTP_201_CREATED,
     response_model=GenreCreateResponseSchema,
+    summary="Create a new genre",
+    description="Creates a new genre record in the database.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": GenreCreateResponseSchema,
+            "description": "Genre successfully created.",
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Genre with this name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Genre with name 'Action' already exists."}
+                }
+            },
+        },
+    },
 )
 async def create_genre(
     user_data: GenreCreateRequestSchema, db: AsyncSession = Depends(get_db)
@@ -68,6 +84,30 @@ async def create_genre(
 @router.put(
     "/genres/{genre_id}",
     response_model=GenreUpdateResponseSchema,
+    summary="Update an existing genre",
+    description="Updates the details of a specific genre by its ID.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": GenreUpdateResponseSchema,
+            "description": "Genre successfully updated.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Genre not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Genre with id 1 not found."}
+                }
+            },
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Another genre with the target name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Genre with name 'Action' already exists."}
+                }
+            },
+        },
+    },
 )
 async def update_genre(
     genre_id: int,
@@ -102,6 +142,31 @@ async def update_genre(
 @router.delete(
     "/genres/{genre_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a genre",
+    description="Deletes a genre by its ID if it is not linked to any existing movies.",
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Genre successfully deleted.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Cannot delete genre due to active references in movies.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Cannot delete genre because it is referenced by existing movies."
+                    }
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Genre not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Genre with id 1 not found."}
+                }
+            },
+        },
+    },
 )
 async def delete_genre(genre_id: int, db: AsyncSession = Depends(get_db)):
     stmt = select(GenreModel).where(GenreModel.id == genre_id)
@@ -128,6 +193,24 @@ async def delete_genre(genre_id: int, db: AsyncSession = Depends(get_db)):
     "/stars",
     status_code=status.HTTP_201_CREATED,
     response_model=StarCreateResponseSchema,
+    summary="Create a new star",
+    description="Creates a new movie star (actor) record in the database.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": StarCreateResponseSchema,
+            "description": "Star successfully created.",
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Star with this name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Star with name 'Keanu Reeves' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def create_star(
     user_data: StarCreateRequestSchema, db: AsyncSession = Depends(get_db)
@@ -151,6 +234,30 @@ async def create_star(
 @router.put(
     "/stars/{star_id}",
     response_model=StarUpdateResponseSchema,
+    summary="Update an existing star",
+    description="Updates details for an existing star by their ID.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": StarUpdateResponseSchema,
+            "description": "Star successfully updated.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Star not found.",
+            "content": {
+                "application/json": {"example": {"detail": "Star with id 1 not found."}}
+            },
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Star with this name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Star with name 'Keanu Reeves' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def update_star(
     star_id: int,
@@ -185,6 +292,29 @@ async def update_star(
 @router.delete(
     "/stars/{star_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a star",
+    description="Deletes a star by ID if not associated with any movies.",
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Star successfully deleted.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Cannot delete star because it is referenced by existing movies.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Cannot delete star because it is referenced by existing movies."
+                    }
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Star not found.",
+            "content": {
+                "application/json": {"example": {"detail": "Star with id 1 not found."}}
+            },
+        },
+    },
 )
 async def delete_star(star_id: int, db: AsyncSession = Depends(get_db)):
     stmt = select(StarModel).where(StarModel.id == star_id)
@@ -211,6 +341,24 @@ async def delete_star(star_id: int, db: AsyncSession = Depends(get_db)):
     "/directors",
     status_code=status.HTTP_201_CREATED,
     response_model=DirectorCreateResponseSchema,
+    summary="Create a new director",
+    description="Creates a new movie director entry.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": DirectorCreateResponseSchema,
+            "description": "Director successfully created.",
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Director with this name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Director with name 'Christopher Nolan' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def create_director(
     user_data: DirectorCreateRequestSchema, db: AsyncSession = Depends(get_db)
@@ -234,6 +382,32 @@ async def create_director(
 @router.put(
     "/directors/{director_id}",
     response_model=DirectorUpdateResponseSchema,
+    summary="Update an existing director",
+    description="Updates information for a specific director by their ID.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": DirectorUpdateResponseSchema,
+            "description": "Director successfully updated.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Director not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Director with id 1 not found."}
+                }
+            },
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Director with this name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Director with name 'Christopher Nolan' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def update_director(
     director_id: int,
@@ -268,6 +442,31 @@ async def update_director(
 @router.delete(
     "/directors/{director_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a director",
+    description="Deletes a director by ID if they have no movies assigned.",
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Director successfully deleted.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Cannot delete director because they are referenced by existing movies.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Cannot delete director because it is referenced by existing movies."
+                    }
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Director not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Director with id 1 not found."}
+                }
+            },
+        },
+    },
 )
 async def delete_director(director_id: int, db: AsyncSession = Depends(get_db)):
     stmt = select(DirectorModel).where(DirectorModel.id == director_id)
@@ -294,6 +493,24 @@ async def delete_director(director_id: int, db: AsyncSession = Depends(get_db)):
     "/certifications",
     status_code=status.HTTP_201_CREATED,
     response_model=CertificationCreateResponseSchema,
+    summary="Create a new certification",
+    description="Creates a new certification classification (e.g., PG-13, R) for movies.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": CertificationCreateResponseSchema,
+            "description": "Certification successfully created.",
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Certification with this name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Certification with name 'PG-13' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def create_certification(
     user_data: CertificationCreateRequestSchema, db: AsyncSession = Depends(get_db)
@@ -317,6 +534,32 @@ async def create_certification(
 @router.put(
     "/certifications/{certification_id}",
     response_model=CertificationUpdateResponseSchema,
+    summary="Update an existing certification",
+    description="Updates an existing certification by its ID.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": CertificationUpdateResponseSchema,
+            "description": "Certification successfully updated.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Certification not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Certification with id 1 not found."}
+                }
+            },
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Certification with this name already exists.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Certification with name 'PG-13' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def update_certification(
     certification_id: int,
@@ -351,6 +594,31 @@ async def update_certification(
 @router.delete(
     "/certifications/{certification_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a certification",
+    description="Deletes a certification by ID if not assigned to any existing movies.",
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Certification successfully deleted.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Cannot delete certification because it is referenced by existing movies.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Cannot delete certification because it is referenced by existing movies."
+                    }
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Certification not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Certification with id 1 not found."}
+                }
+            },
+        },
+    },
 )
 async def delete_certification(
     certification_id: int, db: AsyncSession = Depends(get_db)
@@ -379,6 +647,42 @@ async def delete_certification(
     "",
     status_code=status.HTTP_201_CREATED,
     response_model=MovieCreateResponseSchema,
+    summary="Create a new movie",
+    description="Creates a movie record with relations to genres, directors, and stars. All specified relation IDs must exist in the database.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": MovieCreateResponseSchema,
+            "description": "Movie successfully created.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Bad Request: One or more provided relation IDs (genres, directors, stars) do not exist.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "missing_genres": {
+                            "value": {"detail": "One or more genres were not found"}
+                        },
+                        "missing_directors": {
+                            "value": {"detail": "One or more directors were not found"}
+                        },
+                        "missing_stars": {
+                            "value": {"detail": "One or more stars were not found"}
+                        },
+                    }
+                }
+            },
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Movie with the same name, year, and runtime duration already exists.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Movie 'Inception - 2010: 148' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def create_movie(
     user_data: MovieCreateRequestSchema, db: AsyncSession = Depends(get_db)
@@ -444,6 +748,50 @@ async def create_movie(
 @router.patch(
     "/{movie_id}",
     response_model=MovieUpdateResponseSchema,
+    summary="Partially update a movie",
+    description="Updates specific fields of a movie by ID, including updating relations to genres, directors, and stars if provided.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": MovieUpdateResponseSchema,
+            "description": "Movie successfully updated.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Bad Request: One or more updated relation IDs (genres, directors, stars) do not exist.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "missing_genres": {
+                            "value": {"detail": "One or more genres were not found"}
+                        },
+                        "missing_directors": {
+                            "value": {"detail": "One or more directors were not found"}
+                        },
+                        "missing_stars": {
+                            "value": {"detail": "One or more stars were not found"}
+                        },
+                    }
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Movie not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Movie with id 1 not found."}
+                }
+            },
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Updated properties result in a duplicate movie entry.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Movie 'Inception - 2010: 148' already exists."
+                    }
+                }
+            },
+        },
+    },
 )
 async def update_movie(
     movie_id: int,
@@ -516,6 +864,37 @@ async def update_movie(
 @router.delete(
     "/{movie_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a movie",
+    description="Deletes a movie by ID. Returns an error if the movie has already been purchased successfully by any user.",
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Movie successfully deleted.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Failed to delete movie due to a database exception.",
+            "content": {
+                "application/json": {"example": {"detail": "Failed to delete movie."}}
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Movie not found.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Movie with id 1 not found."}
+                }
+            },
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Conflict: Cannot delete movie as it has associated successful purchase payments.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Cannot delete movie as it has already been purchased by users."
+                    }
+                }
+            },
+        },
+    },
 )
 async def delete_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
     stmt = select(MovieModel).where(MovieModel.id == movie_id)
