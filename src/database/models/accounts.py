@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from database.models.carts import CartModel
     from database.models.orders import OrderModel
     from database.models.payments import PaymentModel
+    from database.models.profiles import UserProfileModel
 
 
 class UserGroupEnum(str, enum.Enum):
@@ -75,6 +76,10 @@ class UserModel(Base):
 
     refresh_tokens: Mapped[List["RefreshTokenModel"]] = relationship(
         "RefreshTokenModel", back_populates="user", cascade="all, delete-orphan"
+    )
+
+    profile: Mapped["UserProfileModel"] = relationship(
+        "UserProfileModel", back_populates="user", uselist=False
     )
 
     @classmethod
