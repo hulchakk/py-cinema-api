@@ -7,8 +7,21 @@ from fastapi import Query
 class PaginationParams:
     def __init__(
         self,
-        page: int = Query(default=1, ge=1),
-        per_page: int = Query(default=10, ge=1, le=100),
+        page: int = Query(
+            default=1,
+            ge=1,
+            title="Page Number",
+            description="Page number for pagination, starting from 1.",
+            examples=[1],
+        ),
+        per_page: int = Query(
+            default=10,
+            ge=1,
+            le=100,
+            title="Items Per Page",
+            description="Number of items to return per page (max 100).",
+            examples=[10],
+        ),
     ):
         self.page = page
         self.per_page = per_page
@@ -19,17 +32,84 @@ class PaginationParams:
 class MovieFilterParams:
     def __init__(
         self,
-        year_from: Optional[int] = Query(default=None, ge=1888, le=2100),
-        year_to: Optional[int] = Query(default=None, ge=1888, le=2100),
-        price_from: Optional[Decimal] = Query(default=None, ge=0),
-        price_to: Optional[Decimal] = Query(default=None, gt=0),
-        imdb_from: Optional[float] = Query(default=None, ge=0, le=10),
-        imdb_to: Optional[float] = Query(default=None, gt=0, le=10),
-        time_from: Optional[int] = Query(default=None, ge=0),
-        time_to: Optional[int] = Query(default=None, gt=0),
-        genres: Optional[list[int]] = Query(default=None),
-        directors: Optional[list[int]] = Query(default=None),
-        stars: Optional[list[int]] = Query(default=None),
+        year_from: Optional[int] = Query(
+            default=None,
+            ge=1888,
+            le=2100,
+            title="Release Year From",
+            description="Filter movies released in or after this year.",
+            examples=[2000],
+        ),
+        year_to: Optional[int] = Query(
+            default=None,
+            ge=1888,
+            le=2100,
+            title="Release Year To",
+            description="Filter movies released in or before this year.",
+            examples=[2023],
+        ),
+        price_from: Optional[Decimal] = Query(
+            default=None,
+            ge=0,
+            title="Minimum Price",
+            description="Filter movies with a price greater than or equal to this value.",
+            examples=[0.00],
+        ),
+        price_to: Optional[Decimal] = Query(
+            default=None,
+            gt=0,
+            title="Maximum Price",
+            description="Filter movies with a price less than or equal to this value.",
+            examples=[19.99],
+        ),
+        imdb_from: Optional[float] = Query(
+            default=None,
+            ge=0,
+            le=10,
+            title="Minimum IMDb Rating",
+            description="Filter movies with an IMDb score greater than or equal to this value.",
+            examples=[7.0],
+        ),
+        imdb_to: Optional[float] = Query(
+            default=None,
+            gt=0,
+            le=10,
+            title="Maximum IMDb Rating",
+            description="Filter movies with an IMDb score less than or equal to this value.",
+            examples=[10.0],
+        ),
+        time_from: Optional[int] = Query(
+            default=None,
+            ge=0,
+            title="Minimum Duration (minutes)",
+            description="Filter movies with a runtime greater than or equal to this value in minutes.",
+            examples=[90],
+        ),
+        time_to: Optional[int] = Query(
+            default=None,
+            gt=0,
+            title="Maximum Duration (minutes)",
+            description="Filter movies with a runtime less than or equal to this value in minutes.",
+            examples=[180],
+        ),
+        genres: Optional[list[int]] = Query(
+            default=None,
+            title="Genre IDs",
+            description="Filter movies that match any of the specified genre IDs.",
+            examples=[[1, 2]],
+        ),
+        directors: Optional[list[int]] = Query(
+            default=None,
+            title="Director IDs",
+            description="Filter movies directed by any of the specified director IDs.",
+            examples=[[5]],
+        ),
+        stars: Optional[list[int]] = Query(
+            default=None,
+            title="Star IDs",
+            description="Filter movies featuring any of the specified actor/star IDs.",
+            examples=[[10, 12]],
+        ),
     ):
         self.year_from = year_from
         self.year_to = year_to
