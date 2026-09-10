@@ -33,7 +33,7 @@ async def get_current_user(
 
     stmt = (
         select(UserModel)
-        .where(UserModel.id == payload["user_id"])
+        .where(UserModel.id == payload["user_id"], UserModel.is_active == True)
         .options(joinedload(UserModel.group))
     )
     user = await db.scalar(stmt)
