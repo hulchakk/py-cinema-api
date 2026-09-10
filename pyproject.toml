@@ -24,6 +24,7 @@ asyncpg = "^0.31.0"
 python-multipart = "^0.0.32"
 stripe = "^15.6.1"
 httpx = "^0.28.1"
+aioboto3 = "^15.5.0"
 
 
 [build-system]
