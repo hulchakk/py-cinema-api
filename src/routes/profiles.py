@@ -152,15 +152,23 @@ async def update_avatar(
         file_name = f"avatars/{user.id}_avatar_{uuid4().hex[:8]}{ext}"
 
         await storage.upload_file(file_name=file_name, file_data=avatar_bytes)
-
     except S3FileUploadError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload avatar. Please try again later.",
         )
     else:
+        old_avatar = profile.avatar
+
         profile.avatar = file_name
         await db.commit()
+        try:
+            if old_avatar:
+                await storage.delete_file(file_name=old_avatar)
+        except:
+            # TODO: Add a background task (Celery / BackgroundTasks) or a background cron script
+            # for periodic cleanup of orphaned files from S3
+            pass
 
     return UserProfileUpdateAvatarResponseSchema(
         avatar_url=storage.get_file_url(profile.avatar),
