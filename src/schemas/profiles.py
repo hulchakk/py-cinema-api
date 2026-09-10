@@ -15,3 +15,11 @@ class UserProfileRetrieveResponseSchema(BaseModel):
     info: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserProfileCreateRequestSchema(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    gender: Optional[GenderEnum] = None
+    date_of_birth: Optional[date] = None
+    info: Optional[str] = None
