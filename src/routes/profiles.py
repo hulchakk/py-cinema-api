@@ -31,7 +31,6 @@ router = APIRouter(
     prefix="/me",
 )
 
-
 ProfileNotFound = HTTPException(
     status_code=status.HTTP_404_NOT_FOUND,
     detail="Profile not found.",
@@ -48,6 +47,23 @@ NoDataProvided = HTTPException(
     "",
     status_code=status.HTTP_200_OK,
     response_model=UserProfileRetrieveResponseSchema,
+    summary="Get user profile",
+    description="Retrieves the profile information of the currently authenticated user.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": UserProfileRetrieveResponseSchema,
+            "description": "User profile retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Profile not found for the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile not found."}}
+            },
+        },
+    },
 )
 async def get_user_profile(
     storage: S3StorageInterface = Depends(get_s3_storage_client),
@@ -76,6 +92,24 @@ async def get_user_profile(
     "/library",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[MovieListResponseSchema],
+    summary="Get user purchased movies library",
+    description="Retrieves a paginated list of movies purchased by the currently authenticated user through successful payments.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of purchased movies retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "User has no purchased movies in their library.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "You don't have any movies yet."}
+                }
+            },
+        },
+    },
 )
 async def get_users_movies(
     request: Request,
@@ -127,6 +161,29 @@ async def get_users_movies(
     "",
     status_code=status.HTTP_201_CREATED,
     response_model=UserProfileRetrieveResponseSchema,
+    summary="Create user profile",
+    description="Creates a profile for the currently authenticated user. Checks that the profile does not already exist and that initial data is provided.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": UserProfileRetrieveResponseSchema,
+            "description": "User profile successfully created.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "No data provided in the request payload.",
+            "content": {
+                "application/json": {"example": {"detail": "No data provided."}}
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Profile already exists for this user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile already exists."}}
+            },
+        },
+    },
 )
 async def create_user_profile(
     profile_data: UserProfileCreateUpdateRequestSchema,
@@ -172,6 +229,29 @@ async def create_user_profile(
     "",
     status_code=status.HTTP_200_OK,
     response_model=UserProfileRetrieveResponseSchema,
+    summary="Update user profile",
+    description="Partially updates profile information for the currently authenticated user.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": UserProfileRetrieveResponseSchema,
+            "description": "User profile successfully updated.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "No data provided in the update payload.",
+            "content": {
+                "application/json": {"example": {"detail": "No data provided."}}
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Profile not found for the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile not found."}}
+            },
+        },
+    },
 )
 async def update_user_profile(
     profile_data: UserProfileCreateUpdateRequestSchema,
@@ -211,6 +291,33 @@ async def update_user_profile(
     "/avatar",
     status_code=status.HTTP_200_OK,
     response_model=UserProfileUpdateAvatarResponseSchema,
+    summary="Upload user avatar",
+    description="Uploads a new avatar image for the user to S3 storage, updates the profile with the new file path, and removes the old avatar if one existed.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": UserProfileUpdateAvatarResponseSchema,
+            "description": "Avatar successfully uploaded and profile updated.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Profile not found for the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile not found."}}
+            },
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Error occurred while uploading the file to S3 storage.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Failed to upload avatar. Please try again later."
+                    }
+                }
+            },
+        },
+    },
 )
 async def update_avatar(
     avatar_image: UploadFile = File(...),
