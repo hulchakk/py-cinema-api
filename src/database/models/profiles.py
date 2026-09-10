@@ -35,3 +35,7 @@ class UserProfileModel(Base):
         "UserModel",
         back_populates="profile",
     )
+
+    @property
+    def avatar_url(self):
+        return self.avatar
