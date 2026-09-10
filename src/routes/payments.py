@@ -1,10 +1,11 @@
 import stripe
-from fastapi import APIRouter, Header, HTTPException, Depends, status
+from fastapi import APIRouter, Header, HTTPException, Depends, status, BackgroundTasks
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.requests import Request
 
+from config.dependencies import get_accounts_email_notificator
 from config.settings import settings
 from database.models.accounts import UserModel
 from database.models.orders import OrderModel, OrderStatusEnum
@@ -14,6 +15,7 @@ from routes.dependencies import PaginationParams
 from schemas.pagination import PaginatedResponseSchema
 from schemas.payments import PaymentListResponseSchema, PaymentRetrieveResponseSchema
 from security.dependencies import get_current_user
+from services.notifications.interfaces import EmailSenderInterface
 from utils.paginator import paginate_response
 
 router = APIRouter(
@@ -82,8 +84,10 @@ async def get_payment_details(
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     stripe_signature: str = Header(..., alias="stripe-signature"),
     db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ):
     payload = await request.body()
 
@@ -117,7 +121,10 @@ async def stripe_webhook(
         stmt = (
             select(OrderModel)
             .where(OrderModel.id == order_id)
-            .options(selectinload(OrderModel.items))
+            .options(
+                selectinload(OrderModel.items),
+                selectinload(OrderModel.user),
+            )
         )
         order = await db.scalar(stmt)
 
@@ -149,5 +156,13 @@ async def stripe_webhook(
             db.add(payment_item)
 
         await db.commit()
+
+        background_tasks.add_task(
+            email_sender.send_payment_receipt_email,
+            email=order.user.email,
+            payment_id=str(payment.id),
+            amount=float(payment.amount),
+            currency=session.get("currency", "usd").upper(),
+        )
 
     return {"status": "success"}
