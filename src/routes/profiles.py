@@ -46,6 +46,13 @@ async def create_user_profile(
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    update_data = profile_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No data provided.",
+        )
+
     stmt = select(exists().where(UserProfileModel.user_id == user.id))
     is_profile = await db.scalar(stmt)
 
@@ -56,11 +63,11 @@ async def create_user_profile(
         )
 
     profile = UserProfileModel(
-        user_id=user.id, **profile_data.model_dump(exclude_unset=True)
+        user_id=user.id,
+        **update_data,
     )
 
     db.add(profile)
-
     await db.commit()
     await db.refresh(profile)
 
@@ -77,17 +84,23 @@ async def update_user_profile(
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    update_data = profile_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No data provided.",
+        )
+
     stmt = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
     profile = await db.scalar(stmt)
 
     if not profile:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found.",
         )
 
-    update_dict = profile_data.model_dump(exclude_unset=True)
-
-    for key, value in update_dict.items():
+    for key, value in update_data.items():
         setattr(profile, key, value)
 
     await db.commit()
