@@ -4,6 +4,7 @@ from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from config.dependencies import get_s3_storage_client
 from database.models.base import Base
 
 if TYPE_CHECKING:
@@ -35,7 +36,3 @@ class UserProfileModel(Base):
         "UserModel",
         back_populates="profile",
     )
-
-    @property
-    def avatar_url(self):
-        return self.avatar

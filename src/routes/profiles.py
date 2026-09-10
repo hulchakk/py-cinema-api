@@ -1,17 +1,23 @@
+from pathlib import Path
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
+from config.dependencies import get_s3_storage_client
 from database.models.accounts import UserModel
 from database.models.profiles import UserProfileModel
 from database.session import get_db
+from exceptions.storages import S3FileUploadError
 from schemas.profiles import (
     UserProfileRetrieveResponseSchema,
     UserProfileCreateUpdateRequestSchema,
     UserProfileUpdateAvatarResponseSchema,
 )
 from security.dependencies import get_current_user
+from services.storages.interfaces import S3StorageInterface
 
 router = APIRouter(
     prefix="/me",
@@ -36,7 +42,9 @@ NoDataProvided = HTTPException(
     response_model=UserProfileRetrieveResponseSchema,
 )
 async def get_user_profile(
-    user: UserModel = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
     profile = await db.scalar(stmt)
@@ -44,7 +52,16 @@ async def get_user_profile(
     if not profile:
         raise ProfileNotFound
 
-    return profile
+    avatar_url = storage.get_file_url(profile.avatar) if profile.avatar else None
+
+    return UserProfileRetrieveResponseSchema(
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        avatar_url=avatar_url,
+        gender=profile.gender,
+        date_of_birth=profile.date_of_birth,
+        info=profile.info,
+    )
 
 
 @router.post(
@@ -118,6 +135,7 @@ async def update_user_profile(
 )
 async def update_avatar(
     avatar_image: UploadFile = File(...),
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -127,8 +145,23 @@ async def update_avatar(
     if not profile:
         raise ProfileNotFound
 
-    # upload image to s3 storage function
+    try:
+        avatar_bytes = await avatar_image.read()
+        ext = Path(avatar_image.filename).suffix
+
+        file_name = f"avatars/{user.id}_avatar_{uuid4().hex[:8]}{ext}"
+
+        await storage.upload_file(file_name=file_name, file_data=avatar_bytes)
+
+    except S3FileUploadError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload avatar. Please try again later.",
+        )
+    else:
+        profile.avatar = file_name
+        await db.commit()
 
     return UserProfileUpdateAvatarResponseSchema(
-        avatar_url=profile.avatar_url,
+        avatar_url=storage.get_file_url(profile.avatar),
     )

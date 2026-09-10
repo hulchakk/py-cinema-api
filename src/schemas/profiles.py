@@ -14,8 +14,6 @@ class UserProfileRetrieveResponseSchema(BaseModel):
     date_of_birth: Optional[date] = None
     info: Optional[str] = None
 
-    model_config = ConfigDict(from_attributes=True)
-
 
 class UserProfileCreateUpdateRequestSchema(BaseModel):
     first_name: Optional[str] = None
