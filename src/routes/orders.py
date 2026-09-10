@@ -1,12 +1,13 @@
 from decimal import Decimal
 
-from fastapi import Depends, APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException, BackgroundTasks
 from sqlalchemy import select, func, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
 from starlette.requests import Request
 
+from config.dependencies import get_accounts_email_notificator
 from database.models.accounts import UserModel
 from database.models.carts import CartModel, CartItemModel
 from database.models.orders import OrderModel, OrderItemModel, OrderStatusEnum
@@ -22,6 +23,7 @@ from schemas.orders import (
 )
 from schemas.pagination import PaginatedResponseSchema
 from security.dependencies import get_current_user
+from services.notifications.interfaces import EmailSenderInterface
 from services.payments.interfaces import PaymentInterface
 from services.payments.stripe import StripePaymentService
 from utils.paginator import paginate_response
@@ -37,8 +39,10 @@ router = APIRouter(
     response_model=MessageResponseSchema,
 )
 async def create_order(
+    background_tasks: BackgroundTasks,
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ):
     stmt = (
         select(CartModel)
@@ -97,6 +101,7 @@ async def create_order(
     await db.flush()
 
     total_amount = Decimal("0.00")
+    order_items_data = []
 
     for cart_item in cart.items:
         current_price = Decimal(str(cart_item.movie.price))
@@ -109,11 +114,26 @@ async def create_order(
 
         db.add(order_item)
         total_amount += current_price
+        order_items_data.append(
+            {"title": cart_item.movie.name, "price": float(current_price)}
+        )
 
     order.total_amount = total_amount
 
     await db.delete(cart)
     await db.commit()
+
+    order_details = {
+        "items": order_items_data,
+        "total_amount": float(total_amount),
+    }
+
+    background_tasks.add_task(
+        email_sender.send_order_confirmation_email,
+        email=user.email,
+        order_id=str(order.id),
+        order_details=order_details,
+    )
 
     return MessageResponseSchema(
         message="Successfully created order",
