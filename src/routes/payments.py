@@ -1,5 +1,13 @@
 import stripe
-from fastapi import APIRouter, Header, HTTPException, Depends, status, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    Header,
+    HTTPException,
+    Depends,
+    status,
+    BackgroundTasks,
+    Path,
+)
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,6 +35,22 @@ router = APIRouter(
     "",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[PaymentListResponseSchema],
+    summary="Get user payments",
+    description="Retrieves a paginated list of all payment transactions belonging to the currently authenticated user.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of payments retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No payments found for the current user.",
+            "content": {
+                "application/json": {"example": {"detail": "Payments not found."}}
+            },
+        },
+    },
 )
 async def get_user_payments(
     request: Request,
@@ -60,9 +84,31 @@ async def get_user_payments(
     "/{payment_id}",
     status_code=status.HTTP_200_OK,
     response_model=PaymentRetrieveResponseSchema,
+    summary="Get payment details",
+    description="Retrieves detailed information about a specific payment transaction belonging to the current user, including payment items and associated movie details.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": PaymentRetrieveResponseSchema,
+            "description": "Payment details retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Payment not found or does not belong to the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Payment not found."}}
+            },
+        },
+    },
 )
 async def get_payment_details(
-    payment_id: int,
+    payment_id: int = Path(
+        ...,
+        title="Payment ID",
+        description="The ID of the payment to retrieve.",
+        example=1,
+    ),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -81,11 +127,49 @@ async def get_payment_details(
     return payment
 
 
-@router.post("/webhook")
+@router.post(
+    "/webhook",
+    status_code=status.HTTP_200_OK,
+    summary="Stripe Webhook Listener",
+    description="Handles webhook events sent by Stripe. Processes successful checkout sessions (`checkout.session.completed`), creates payment records with payment items, updates order status to PAID, and queues payment receipt emails.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Event processed or acknowledged.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "processed": {"value": {"status": "success"}},
+                        "already_processed": {"value": {"status": "already_processed"}},
+                    }
+                }
+            },
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Invalid payload or signature verification failed.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "invalid_payload": {"value": {"detail": "Invalid payload"}},
+                        "invalid_signature": {"value": {"detail": "Invalid signature"}},
+                    }
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Order associated with payment metadata not found.",
+            "content": {"application/json": {"example": {"detail": "Order not found"}}},
+        },
+    },
+)
 async def stripe_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
-    stripe_signature: str = Header(..., alias="stripe-signature"),
+    stripe_signature: str = Header(
+        ...,
+        alias="stripe-signature",
+        title="Stripe Signature",
+        description="Signature provided in the headers by Stripe to verify webhook integrity.",
+    ),
     db: AsyncSession = Depends(get_db),
     email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ):
