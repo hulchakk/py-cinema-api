@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from fastapi import Depends, APIRouter, HTTPException, BackgroundTasks
+from fastapi import Depends, APIRouter, HTTPException, BackgroundTasks, Path
 from sqlalchemy import select, func, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -37,6 +37,45 @@ router = APIRouter(
     "",
     status_code=status.HTTP_201_CREATED,
     response_model=MessageResponseSchema,
+    summary="Create a new order",
+    description="Creates a new pending order from the current user's shopping cart. Validates that the cart is not empty, movies have not been previously purchased, and there are no conflicting pending orders with the same movies. Clears the cart and queues an order confirmation email upon success.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": MessageResponseSchema,
+            "description": "Order successfully created.",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Successfully created order"}
+                }
+            },
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Cart contains already purchased movies or movies present in another pending order.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "already_purchased": {
+                            "value": {
+                                "detail": "Your cart contains movies that you have already purchased."
+                            }
+                        },
+                        "pending_conflict": {
+                            "value": {
+                                "detail": "You already have a pending order containing one or more of these movies."
+                            }
+                        },
+                    }
+                }
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Cart is empty or does not exist for the user.",
+            "content": {"application/json": {"example": {"detail": "Cart not found."}}},
+        },
+    },
 )
 async def create_order(
     background_tasks: BackgroundTasks,
@@ -144,6 +183,22 @@ async def create_order(
     "",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponseSchema[OrderListResponseSchema],
+    summary="Get user orders",
+    description="Retrieves a paginated list of all orders belonging to the authenticated user.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of user orders retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No orders found for the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Orders not found."}}
+            },
+        },
+    },
 )
 async def get_user_orders(
     request: Request,
@@ -177,9 +232,28 @@ async def get_user_orders(
     "/{order_id}",
     status_code=status.HTTP_200_OK,
     response_model=OrderRetrieveResponseSchema,
+    summary="Get order details",
+    description="Retrieves detailed information about a specific order belonging to the current user, including order items and associated movie details.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": OrderRetrieveResponseSchema,
+            "description": "Order details retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Order not found or does not belong to the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Order not found."}}
+            },
+        },
+    },
 )
 async def get_order_details(
-    order_id: int,
+    order_id: int = Path(
+        ..., title="Order ID", description="The ID of the order to retrieve.", example=1
+    ),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -202,9 +276,43 @@ async def get_order_details(
     "/{order_id}",
     status_code=status.HTTP_200_OK,
     response_model=MessageResponseSchema,
+    summary="Cancel order",
+    description="Cancels an existing pending order belonging to the user. Orders that are not in PENDING status cannot be canceled.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": MessageResponseSchema,
+            "description": "Order successfully canceled.",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Successfully canceled order."}
+                }
+            },
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Order is not in PENDING status.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Cannot cancel order with status 'successful'. Only pending orders can be canceled."
+                    }
+                }
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Order not found or does not belong to the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Order not found."}}
+            },
+        },
+    },
 )
 async def cancel_order(
-    order_id: int,
+    order_id: int = Path(
+        ..., title="Order ID", description="The ID of the order to cancel.", example=1
+    ),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -238,10 +346,46 @@ async def cancel_order(
     "/{order_id}/pay",
     status_code=status.HTTP_200_OK,
     response_model=CreateCheckoutSessionResponseSchema,
+    summary="Create payment checkout session",
+    description="Generates a payment checkout session URL (e.g. Stripe) for a pending order. Requires valid success and cancel redirect URLs.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": CreateCheckoutSessionResponseSchema,
+            "description": "Checkout session created successfully.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_12345"
+                    }
+                }
+            },
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Order is not in PENDING status and cannot be paid.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Order 1 cannot be paid because it is already successful."
+                    }
+                }
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Order not found or does not belong to the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Order not found."}}
+            },
+        },
+    },
 )
 async def create_checkout_session(
-    order_id: int,
     data: CreateCheckoutSessionRequestSchema,
+    order_id: int = Path(
+        ..., title="Order ID", description="The ID of the order to pay for.", example=1
+    ),
     payment_service: PaymentInterface = Depends(StripePaymentService),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
