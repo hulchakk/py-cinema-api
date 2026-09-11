@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from config.dependencies import get_accounts_email_notificator
 from config.settings import settings
+from database.models.accounts import UserGroupModel, UserGroupEnum
 from database.models.base import Base
 from main import app
 from database.session import get_db
@@ -52,3 +53,24 @@ def override_email_dependency():
     app.dependency_overrides[get_accounts_email_notificator] = lambda: MockEmailSender()
     yield
     app.dependency_overrides.pop(get_accounts_email_notificator, None)
+
+
+@pytest.fixture(autouse=True)
+async def create_default_user_groups(db_session: AsyncSession):
+    user_group = UserGroupModel(
+        name=UserGroupEnum.USER,
+    )
+    moderator_group = UserGroupModel(
+        name=UserGroupEnum.MODERATOR,
+    )
+    admin_group = UserGroupModel(
+        name=UserGroupEnum.ADMIN,
+    )
+
+    db_session.add(user_group)
+    db_session.add(moderator_group)
+    db_session.add(admin_group)
+
+    await db_session.commit()
+
+    yield
