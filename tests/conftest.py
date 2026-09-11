@@ -41,22 +41,11 @@ async def client(db_session):
 
 
 @pytest.fixture(autouse=True)
-async def reset_db_before_every_test():
+async def reset_db_before_every_test(db_session):
     async with db_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    yield
 
-
-@pytest.fixture(autouse=True)
-def override_email_dependency():
-    app.dependency_overrides[get_accounts_email_notificator] = lambda: MockEmailSender()
-    yield
-    app.dependency_overrides.pop(get_accounts_email_notificator, None)
-
-
-@pytest.fixture(autouse=True)
-async def create_default_user_groups(db_session: AsyncSession):
     user_group = UserGroupModel(
         name=UserGroupEnum.USER,
     )
@@ -74,3 +63,10 @@ async def create_default_user_groups(db_session: AsyncSession):
     await db_session.commit()
 
     yield
+
+
+@pytest.fixture(autouse=True)
+def override_email_dependency():
+    app.dependency_overrides[get_accounts_email_notificator] = lambda: MockEmailSender()
+    yield
+    app.dependency_overrides.pop(get_accounts_email_notificator, None)
