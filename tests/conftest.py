@@ -5,13 +5,14 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
-from config.dependencies import get_accounts_email_notificator
+from config.dependencies import get_accounts_email_notificator, get_jwt_auth_manager
 from config.settings import settings
 from database.models.accounts import UserGroupModel, UserGroupEnum
 from database.models.base import Base
 from main import app
 from database.session import get_db
 from mocks.email import MockEmailSender
+from mocks.token_manager import MockJWTAuthManager
 
 db_engine = create_async_engine(settings.DB_URL, poolclass=NullPool)
 SessionLocal = async_sessionmaker(
@@ -70,3 +71,10 @@ def override_email_dependency():
     app.dependency_overrides[get_accounts_email_notificator] = lambda: MockEmailSender()
     yield
     app.dependency_overrides.pop(get_accounts_email_notificator, None)
+
+
+@pytest.fixture(autouse=True)
+def override_get_token_manager_dependency(db_session):
+    app.dependency_overrides[get_jwt_auth_manager] = lambda: MockJWTAuthManager()
+    yield
+    app.dependency_overrides.pop(get_jwt_auth_manager, None)
