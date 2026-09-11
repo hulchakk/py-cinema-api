@@ -1,7 +1,12 @@
+from decimal import Decimal
+
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from database.models.movies import MovieModel
+from database.models.orders import OrderModel
+from database.models.payments import PaymentModel, PaymentStatusEnum, PaymentItemModel
 from database.models.profiles import UserProfileModel, GenderEnum
 
 
@@ -132,3 +137,69 @@ class TestUserProfileEndpoints:
         profile = await db_session.scalar(stmt)
 
         assert profile is None
+
+
+class TestLibraryEndpoint:
+    library_endpoint = "/api/v1/me/library"
+
+    async def test_get_user_library_empty(
+        self,
+        default_user,
+        override_get_current_user_dependency,
+        populate_movies,
+        db_session: AsyncSession,
+        client: AsyncClient,
+    ) -> None:
+        response = await client.get(self.library_endpoint)
+
+        assert response.status_code == 404
+
+    async def test_successful_get_user_library(
+        self,
+        default_user,
+        override_get_current_user_dependency,
+        populate_movies,
+        db_session: AsyncSession,
+        client: AsyncClient,
+    ) -> None:
+        order = OrderModel(
+            user_id=default_user.id,
+        )
+
+        db_session.add(order)
+
+        await db_session.flush()
+
+        payment = PaymentModel(
+            user_id=default_user.id,
+            order_id=order.id,
+            amount=Decimal(100),
+            status=PaymentStatusEnum.SUCCESSFUL,
+        )
+
+        db_session.add(payment)
+
+        await db_session.flush()
+
+        stmt = select(MovieModel).limit(3)
+        movies = (await db_session.scalars(stmt)).all()
+
+        total = len(movies)
+
+        for movie in movies:
+            payment_item = PaymentItemModel(
+                payment_id=payment.id,
+                movie_id=movie.id,
+                price_at_payment=Decimal(33.33),
+            )
+
+            db_session.add(payment_item)
+
+        await db_session.commit()
+
+        response = await client.get(self.library_endpoint)
+
+        assert response.status_code == 200
+
+        assert response.json()["total"] == total
+        assert len(response.json()["results"]) == total
