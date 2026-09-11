@@ -10,21 +10,12 @@ from database.models.accounts import (
     UserModel,
     UserGroupEnum,
     ActivationTokenModel,
-    UserGroupModel,
     RefreshTokenModel,
     PasswordResetTokenModel,
 )
+from integration.utils import get_default_user_group
 from main import app
 from security.dependencies import get_current_user
-
-
-async def _get_default_user_group(db_session: AsyncSession) -> UserGroupModel:
-    stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
-    user_group = await db_session.scalar(stmt)
-
-    assert user_group is not None
-
-    return user_group
 
 
 class TestRegisterAndActivateEndpoints:
@@ -61,7 +52,7 @@ class TestRegisterAndActivateEndpoints:
     async def test_register_existing_user(
         self, db_session: AsyncSession, client: AsyncClient
     ) -> None:
-        user_group = await _get_default_user_group(db_session)
+        user_group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email,
@@ -183,7 +174,7 @@ class TestLoginEndpoint:
     async def test_successful_login(
         self, client: AsyncClient, db_session: AsyncSession
     ) -> None:
-        user_group = await _get_default_user_group(db_session)
+        user_group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email,
@@ -220,7 +211,7 @@ class TestLoginEndpoint:
     async def test_login_invalid_credentials(
         self, client: AsyncClient, db_session: AsyncSession, email: str, password: str
     ) -> None:
-        group = await _get_default_user_group(db_session)
+        group = await get_default_user_group(db_session)
         user = UserModel.create(
             email=self.user_email,
             raw_password=self.user_password,
@@ -240,7 +231,7 @@ class TestLoginEndpoint:
     async def test_login_inactive_user(
         self, client: AsyncClient, db_session: AsyncSession
     ) -> None:
-        group = await _get_default_user_group(db_session)
+        group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email,
@@ -265,7 +256,7 @@ class TestRefreshEndpoint:
     async def test_successful_refresh(
         self, client: AsyncClient, db_session: AsyncSession
     ) -> None:
-        user_group = await _get_default_user_group(db_session)
+        user_group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email,
@@ -297,7 +288,7 @@ class TestRefreshEndpoint:
     async def test_refresh_token_not_found_in_db(
         self, client: AsyncClient, db_session: AsyncSession
     ) -> None:
-        group = await _get_default_user_group(db_session)
+        group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email,
@@ -321,7 +312,7 @@ class TestRefreshEndpoint:
     async def test_refresh_for_inactive_user(
         self, client: AsyncClient, db_session: AsyncSession
     ) -> None:
-        user_group = await _get_default_user_group(db_session)
+        user_group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email,
@@ -384,7 +375,7 @@ class TestResetPasswordEndpoints:
     user_new_password = "1NewPassword3"
 
     async def _create_default_user(self, db_session: AsyncSession) -> UserModel:
-        group = await _get_default_user_group(db_session)
+        group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email,
@@ -560,7 +551,7 @@ class TestPasswordChangeEndpoint:
 
     @pytest.fixture
     async def default_user(self, db_session: AsyncSession) -> UserModel:
-        group = await _get_default_user_group(db_session)
+        group = await get_default_user_group(db_session)
 
         user = UserModel.create(
             email=self.user_email, raw_password=self.user_password, group_id=group.id
