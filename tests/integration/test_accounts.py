@@ -13,9 +13,9 @@ from database.models.accounts import (
     RefreshTokenModel,
     PasswordResetTokenModel,
 )
-from integration.utils import get_default_user_group
 from main import app
 from security.dependencies import get_current_user
+from tests.utils import get_default_user_group
 
 
 class TestRegisterAndActivateEndpoints:

@@ -7,8 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from config.dependencies import get_accounts_email_notificator, get_jwt_auth_manager
 from config.settings import settings
-from database.models.accounts import UserGroupModel, UserGroupEnum
+from database.models.accounts import UserGroupModel, UserGroupEnum, UserModel
 from database.models.base import Base
+from security.dependencies import get_current_user
+from tests.utils import get_default_user_group
 from main import app
 from database.session import get_db
 from mocks.email import MockEmailSender
@@ -78,3 +80,27 @@ def override_get_token_manager_dependency(db_session):
     app.dependency_overrides[get_jwt_auth_manager] = lambda: MockJWTAuthManager()
     yield
     app.dependency_overrides.pop(get_jwt_auth_manager, None)
+
+
+@pytest.fixture
+async def default_user(db_session: AsyncSession) -> UserModel:
+    group = await get_default_user_group(db_session)
+
+    user = UserModel.create(
+        email="user@example.com", raw_password="1Qazcde3", group_id=group.id
+    )
+
+    user.is_active = True
+
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    return user
+
+
+@pytest.fixture
+async def override_get_current_user_dependency(default_user):
+    app.dependency_overrides[get_current_user] = lambda: default_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
