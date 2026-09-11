@@ -247,3 +247,121 @@ class TestLoginEndpoint:
         response = await self._login_default_user(client)
 
         assert response.status_code == 403
+
+
+class TestRefreshEndpoint:
+    refresh_endpoint = "/api/v1/accounts/refresh"
+    user_email = "user@example.com"
+    user_password = "1Qazcde3"
+
+    async def test_successful_refresh(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        user_group = await _get_default_user_group(db_session)
+
+        user = UserModel.create(
+            email=self.user_email,
+            raw_password=self.user_password,
+            group_id=user_group.id,
+        )
+        user.is_active = True
+        db_session.add(user)
+        await db_session.commit()
+
+        refresh_token_value = "mocked_refresh_token"
+        db_refresh_token = RefreshTokenModel(
+            token=refresh_token_value,
+            user_id=user.id,
+        )
+        db_session.add(db_refresh_token)
+        await db_session.commit()
+
+        response = await client.post(
+            self.refresh_endpoint,
+            json={"refresh_token": refresh_token_value},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "access_token": "mocked_access_token",
+        }
+
+    async def test_refresh_token_not_found_in_db(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        group = await _get_default_user_group(db_session)
+
+        user = UserModel.create(
+            email=self.user_email,
+            raw_password=self.user_password,
+            group_id=group.id,
+        )
+
+        user.is_active = True
+
+        db_session.add(user)
+        await db_session.commit()
+
+        response = await client.post(
+            self.refresh_endpoint,
+            json={"refresh_token": "non_existent_token_in_db"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Refresh token not found."
+
+    async def test_refresh_for_inactive_user(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        user_group = await _get_default_user_group(db_session)
+
+        user = UserModel.create(
+            email=self.user_email,
+            raw_password=self.user_password,
+            group_id=user_group.id,
+        )
+        user.is_active = False
+        db_session.add(user)
+        await db_session.commit()
+
+        refresh_token_value = "mocked_refresh_token"
+        db_refresh_token = RefreshTokenModel(
+            token=refresh_token_value,
+            user_id=user.id,
+        )
+
+        db_session.add(db_refresh_token)
+        await db_session.commit()
+
+        response = await client.post(
+            self.refresh_endpoint,
+            json={"refresh_token": refresh_token_value},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "User not found."
+
+    async def test_refresh_nonexistent_user(self, client: AsyncClient) -> None:
+        response = await client.post(
+            self.refresh_endpoint,
+            json={"refresh_token": "token_for_nonexistent_user"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "User not found."
+
+    async def test_refresh_with_invalid_token(self, client: AsyncClient) -> None:
+        response = await client.post(
+            self.refresh_endpoint,
+            json={"refresh_token": "invalid_token"},
+        )
+
+        assert response.status_code == 400
+
+    async def test_refresh_with_expired_token(self, client: AsyncClient) -> None:
+        response = await client.post(
+            self.refresh_endpoint,
+            json={"refresh_token": "expired_token"},
+        )
+
+        assert response.status_code == 400
