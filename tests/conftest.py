@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import AsyncGenerator
 
 import pytest
@@ -9,6 +10,13 @@ from config.dependencies import get_accounts_email_notificator, get_jwt_auth_man
 from config.settings import settings
 from database.models.accounts import UserGroupModel, UserGroupEnum, UserModel
 from database.models.base import Base
+from database.models.movies import (
+    StarModel,
+    GenreModel,
+    DirectorModel,
+    CertificationModel,
+    MovieModel,
+)
 from security.dependencies import get_current_user
 from tests.utils import get_default_user_group
 from main import app
@@ -104,3 +112,41 @@ async def override_get_current_user_dependency(default_user):
     app.dependency_overrides[get_current_user] = lambda: default_user
     yield
     app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+async def populate_movies(db_session) -> None:
+    star = StarModel(name="Star")
+    genre = GenreModel(name="Genre")
+    director = DirectorModel(name="Director")
+    certification = CertificationModel(name="Certification")
+
+    for el in (
+        star,
+        genre,
+        director,
+        certification,
+    ):
+        db_session.add(el)
+
+    await db_session.flush()
+
+    for i in range(1, 11):
+        movie = MovieModel(
+            name=f"Movie {i}",
+            year=2026,
+            time=90,
+            imdb=4.0,
+            votes=10,
+            description=f"Movie {i}",
+            price=Decimal(f"{i}.50"),
+            certification_id=certification.id,
+        )
+
+        movie.directors.append(director)
+        movie.genres.append(genre)
+        movie.stars.append(star)
+
+        db_session.add(movie)
+
+    await db_session.commit()
