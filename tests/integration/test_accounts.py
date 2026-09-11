@@ -14,6 +14,8 @@ from database.models.accounts import (
     RefreshTokenModel,
     PasswordResetTokenModel,
 )
+from main import app
+from security.dependencies import get_current_user
 
 
 async def _get_default_user_group(db_session: AsyncSession) -> UserGroupModel:
@@ -547,3 +549,84 @@ class TestResetPasswordEndpoints:
         await db_session.refresh(user)
 
         assert not user.verify_password(self.user_new_password)
+
+
+class TestPasswordChangeEndpoint:
+    password_change_endpoint = "/api/v1/accounts/password/change"
+
+    user_email = "user@example.com"
+    user_password = "1Qazcde3"
+    user_new_password = "1NewPassword2"
+
+    @pytest.fixture
+    async def default_user(self, db_session: AsyncSession) -> UserModel:
+        group = await _get_default_user_group(db_session)
+
+        user = UserModel.create(
+            email=self.user_email, raw_password=self.user_password, group_id=group.id
+        )
+
+        user.is_active = True
+
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+
+        return user
+
+    @pytest.fixture
+    async def override_get_current_user_dependency(self, default_user):
+        app.dependency_overrides[get_current_user] = lambda: default_user
+        yield
+        app.dependency_overrides.pop(get_current_user, None)
+
+    async def test_successful_password_change(
+        self,
+        default_user,
+        override_get_current_user_dependency,
+        client: AsyncClient,
+        db_session: AsyncSession,
+    ) -> None:
+        response = await client.post(
+            self.password_change_endpoint,
+            json={
+                "old_password": self.user_password,
+                "new_password": self.user_new_password,
+            },
+        )
+
+        assert response.status_code == 200
+
+        await db_session.refresh(default_user)
+
+        assert default_user.verify_password(self.user_new_password)
+
+    @pytest.mark.parametrize(
+        "old_password,new_password",
+        [
+            ("incorrect_password", "1NewPassword2"),
+            ("1Qazcde3", "1Qazcde3"),
+        ],
+    )
+    async def test_unsuccessful_password_change(
+        self,
+        default_user,
+        override_get_current_user_dependency,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        old_password: str,
+        new_password: str,
+    ) -> None:
+        response = await client.post(
+            self.password_change_endpoint,
+            json={
+                "old_password": old_password,
+                "new_password": new_password,
+            },
+        )
+
+        assert response.status_code == 400
+
+        await db_session.refresh(default_user)
+
+        assert not default_user.verify_password(self.user_new_password)
