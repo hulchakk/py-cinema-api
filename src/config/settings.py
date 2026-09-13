@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     LOGIN_TIME_DAYS: int = 86400
 
-    PATH_TO_EMAIL_TEMPLATES_DIR: str = str(BASE_DIR / "notifications" / "templates")
+    PATH_TO_EMAIL_TEMPLATES_DIR: str = str(BASE_DIR / "services" /"notifications" / "templates")
     ACTIVATION_EMAIL_TEMPLATE_NAME: str = "activation_email.html"
     ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME: str = "activation_complete_email.html"
     PASSWORD_RESET_TEMPLATE_NAME: str = "password_reset_email.html"
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
         return f"http://{self.S3_STORAGE_HOST}:{self.S3_STORAGE_PORT}"
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file="local.env", env_file_encoding="utf-8", extra="ignore"
     )
 
 
