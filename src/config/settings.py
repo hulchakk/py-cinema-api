@@ -16,7 +16,9 @@ class Settings(BaseSettings):
 
     LOGIN_TIME_DAYS: int = 86400
 
-    PATH_TO_EMAIL_TEMPLATES_DIR: str = str(BASE_DIR / "services" /"notifications" / "templates")
+    PATH_TO_EMAIL_TEMPLATES_DIR: str = str(
+        BASE_DIR / "services" / "notifications" / "templates"
+    )
     ACTIVATION_EMAIL_TEMPLATE_NAME: str = "activation_email.html"
     ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME: str = "activation_complete_email.html"
     PASSWORD_RESET_TEMPLATE_NAME: str = "password_reset_email.html"

@@ -97,7 +97,11 @@ async def get_user_payments(
         status.HTTP_404_NOT_FOUND: {
             "description": "Payment not found or does not belong to the user.",
             "content": {
-                "application/json": {"example": {"detail": "Payment not found."}}
+                "application/json": {
+                    "examples": {
+                        "payment_not_found": {"value": {"detail": "Payment not found."}}
+                    }
+                }
             },
         },
     },
@@ -107,7 +111,7 @@ async def get_payment_details(
         ...,
         title="Payment ID",
         description="The ID of the payment to retrieve.",
-        example=1,
+        examples=[1],
     ),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

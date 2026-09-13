@@ -45,7 +45,9 @@ router = APIRouter(
             "description": "Order successfully created.",
             "content": {
                 "application/json": {
-                    "example": {"message": "Successfully created order"}
+                    "examples": {
+                        "success": {"value": {"message": "Successfully created order"}}
+                    }
                 }
             },
         },
@@ -73,7 +75,13 @@ router = APIRouter(
         },
         status.HTTP_404_NOT_FOUND: {
             "description": "Cart is empty or does not exist for the user.",
-            "content": {"application/json": {"example": {"detail": "Cart not found."}}},
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "cart_not_found": {"value": {"detail": "Cart not found."}}
+                    }
+                }
+            },
         },
     },
 )
@@ -199,7 +207,11 @@ async def create_order(
         status.HTTP_404_NOT_FOUND: {
             "description": "No orders found for the user.",
             "content": {
-                "application/json": {"example": {"detail": "Orders not found."}}
+                "application/json": {
+                    "examples": {
+                        "orders_not_found": {"value": {"detail": "Orders not found."}}
+                    }
+                }
             },
         },
     },
@@ -249,14 +261,21 @@ async def get_user_orders(
         status.HTTP_404_NOT_FOUND: {
             "description": "Order not found or does not belong to the user.",
             "content": {
-                "application/json": {"example": {"detail": "Order not found."}}
+                "application/json": {
+                    "examples": {
+                        "order_not_found": {"value": {"detail": "Order not found."}}
+                    }
+                }
             },
         },
     },
 )
 async def get_order_details(
     order_id: int = Path(
-        ..., title="Order ID", description="The ID of the order to retrieve.", example=1
+        ...,
+        title="Order ID",
+        description="The ID of the order to retrieve.",
+        examples=[1],
     ),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -288,7 +307,11 @@ async def get_order_details(
             "description": "Order successfully canceled.",
             "content": {
                 "application/json": {
-                    "example": {"message": "Successfully canceled order."}
+                    "examples": {
+                        "success": {
+                            "value": {"message": "Successfully canceled order."}
+                        }
+                    }
                 }
             },
         },
@@ -296,8 +319,12 @@ async def get_order_details(
             "description": "Order is not in PENDING status.",
             "content": {
                 "application/json": {
-                    "example": {
-                        "detail": "Cannot cancel order with status 'successful'. Only pending orders can be canceled."
+                    "examples": {
+                        "not_pending": {
+                            "value": {
+                                "detail": "Cannot cancel order with status 'successful'. Only pending orders can be canceled."
+                            }
+                        }
                     }
                 }
             },
@@ -308,14 +335,21 @@ async def get_order_details(
         status.HTTP_404_NOT_FOUND: {
             "description": "Order not found or does not belong to the user.",
             "content": {
-                "application/json": {"example": {"detail": "Order not found."}}
+                "application/json": {
+                    "examples": {
+                        "order_not_found": {"value": {"detail": "Order not found."}}
+                    }
+                }
             },
         },
     },
 )
 async def cancel_order(
     order_id: int = Path(
-        ..., title="Order ID", description="The ID of the order to cancel.", example=1
+        ...,
+        title="Order ID",
+        description="The ID of the order to cancel.",
+        examples=[1],
     ),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -358,8 +392,12 @@ async def cancel_order(
             "description": "Checkout session created successfully.",
             "content": {
                 "application/json": {
-                    "example": {
-                        "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_12345"
+                    "examples": {
+                        "checkout_session": {
+                            "value": {
+                                "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_12345"
+                            }
+                        }
                     }
                 }
             },
@@ -368,8 +406,12 @@ async def cancel_order(
             "description": "Order is not in PENDING status and cannot be paid.",
             "content": {
                 "application/json": {
-                    "example": {
-                        "detail": "Order 1 cannot be paid because it is already successful."
+                    "examples": {
+                        "already_paid": {
+                            "value": {
+                                "detail": "Order 1 cannot be paid because it is already successful."
+                            }
+                        }
                     }
                 }
             },
@@ -380,7 +422,11 @@ async def cancel_order(
         status.HTTP_404_NOT_FOUND: {
             "description": "Order not found or does not belong to the user.",
             "content": {
-                "application/json": {"example": {"detail": "Order not found."}}
+                "application/json": {
+                    "examples": {
+                        "order_not_found": {"value": {"detail": "Order not found."}}
+                    }
+                }
             },
         },
     },
@@ -388,7 +434,10 @@ async def cancel_order(
 async def create_checkout_session(
     data: CreateCheckoutSessionRequestSchema,
     order_id: int = Path(
-        ..., title="Order ID", description="The ID of the order to pay for.", example=1
+        ...,
+        title="Order ID",
+        description="The ID of the order to pay for.",
+        examples=[1],
     ),
     payment_service: PaymentInterface = Depends(StripePaymentService),
     user: UserModel = Depends(get_current_user),
