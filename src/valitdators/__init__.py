@@ -1,1 +1,2 @@
 from valitdators.password import validate_password
+from valitdators.storage import validate_avatar
