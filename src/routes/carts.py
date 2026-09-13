@@ -10,7 +10,7 @@ from database.models.movies import MovieModel
 from database.models.payments import PaymentItemModel, PaymentModel, PaymentStatusEnum
 from database.session import get_db
 from schemas.accounts import MessageResponseSchema
-from schemas.carts import CartResponseSchema
+from schemas.carts import CartResponseSchema, CartAddItemRequestSchema
 from security.dependencies import get_current_user
 
 router = APIRouter(
@@ -99,10 +99,11 @@ async def get_user_cart(
     },
 )
 async def add_item_to_cart(
-    movie_id: int,
+    data: CartAddItemRequestSchema,
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    movie_id = data.movie_id
     movie = await db.get(MovieModel, movie_id)
 
     if not movie:
