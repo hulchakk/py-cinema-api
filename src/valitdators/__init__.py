@@ -1,0 +1,1 @@
+from valitdators.password import validate_password
