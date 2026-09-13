@@ -26,7 +26,7 @@ from schemas.profiles import (
 from security.dependencies import get_current_user
 from services.storages.interfaces import S3StorageInterface
 from utils.paginator import paginate_response
-from valitdators import validate_avatar
+from validators import validate_avatar
 
 router = APIRouter(
     prefix="/me",
