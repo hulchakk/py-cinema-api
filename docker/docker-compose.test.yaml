@@ -1,0 +1,48 @@
+services:
+  test:
+    image: python:3.11-slim
+    container_name: project-tests
+    working_dir: /app
+    volumes:
+      - ../:/app
+      - /app/.venv
+      - poetry-cache:/root/.cache/pypoetry
+      - pip-cache:/root/.cache/pip
+    environment:
+      POETRY_VIRTUALENVS_CREATE: "false"
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      DB_URL: "postgresql+asyncpg://test_user:test_password@db:5432/test_db"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      bash -lc "
+        apt-get update &&
+        apt-get install -y --no-install-recommends curl gcc libpq-dev &&
+        rm -rf /var/lib/apt/lists/* &&
+        curl -sSL https://install.python-poetry.org | python3 - &&
+        export PATH=\"/root/.local/bin:$PATH\" &&
+        poetry install --no-root --no-interaction --no-ansi &&
+        poetry run pytest
+      "
+
+  db:
+    image: postgres:17
+    container_name: project-test-db
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  poetry-cache:
+  pip-cache:
