@@ -16,3 +16,7 @@ class CartResponseSchema(BaseModel):
     items: List[CartItemResponseSchema]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CartAddItemRequestSchema(BaseModel):
+    movie_id: int
