@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from fastapi import Depends, APIRouter, HTTPException, BackgroundTasks, Path
-from sqlalchemy import select, func, exists
+from sqlalchemy import select, func, exists, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette import status
@@ -101,8 +101,10 @@ async def create_order(
         exists().where(
             PaymentItemModel.movie_id.in_(cart_movie_ids),
             PaymentItemModel.payment.has(
-                PaymentModel.user_id == user.id,
-                PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+                and_(
+                    PaymentModel.user_id == user.id,
+                    PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+                )
             ),
         )
     )
@@ -118,8 +120,10 @@ async def create_order(
         exists().where(
             OrderItemModel.movie_id.in_(cart_movie_ids),
             OrderItemModel.order.has(
-                OrderModel.user_id == user.id,
-                OrderModel.status == OrderStatusEnum.PENDING,
+                and_(
+                    OrderModel.user_id == user.id,
+                    OrderModel.status == OrderStatusEnum.PENDING,
+                )
             ),
         )
     )
