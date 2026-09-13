@@ -26,6 +26,7 @@ from schemas.profiles import (
 from security.dependencies import get_current_user
 from services.storages.interfaces import S3StorageInterface
 from utils.paginator import paginate_response
+from valitdators import validate_avatar
 
 router = APIRouter(
     prefix="/me",
@@ -320,7 +321,7 @@ async def update_user_profile(
     },
 )
 async def update_avatar(
-    avatar_image: UploadFile = File(...),
+    avatar_image: UploadFile = Depends(validate_avatar),
     storage: S3StorageInterface = Depends(get_s3_storage_client),
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
