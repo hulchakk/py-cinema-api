@@ -1,9 +1,17 @@
-from pydantic import BaseModel, EmailStr, SecretStr
+from pydantic import BaseModel, EmailStr, SecretStr, field_validator
+
+from validators import validate_password
 
 
 class UserRequestSchema(BaseModel):
     email: EmailStr
     password: SecretStr
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_field(cls, v: SecretStr) -> SecretStr:
+        validate_password(v.get_secret_value())
+        return v
 
 
 class UserResponseSchema(BaseModel):
@@ -36,10 +44,22 @@ class ResetPasswordCompleteRequestSchema(BaseModel):
     token: SecretStr
     password: SecretStr
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_field(cls, v: SecretStr) -> SecretStr:
+        validate_password(v.get_secret_value())
+        return v
+
 
 class ChangePasswordRequestSchema(BaseModel):
     old_password: SecretStr
     new_password: SecretStr
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_field(cls, v: SecretStr) -> SecretStr:
+        validate_password(v.get_secret_value())
+        return v
 
 
 class TokenRefreshRequestSchema(BaseModel):
