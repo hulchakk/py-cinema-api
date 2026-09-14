@@ -1,0 +1,362 @@
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy import select, exists, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from starlette import status
+from starlette.requests import Request
+
+from config.dependencies import get_s3_storage_client
+from database.models.accounts import UserModel
+from database.models.movies import MovieModel
+from database.models.payments import PaymentItemModel, PaymentModel, PaymentStatusEnum
+from database.models.profiles import UserProfileModel
+from database.session import get_db
+from exceptions.storages import S3FileUploadError
+from routes.dependencies import PaginationParams
+from schemas.movies import MovieListResponseSchema
+from schemas.pagination import PaginatedResponseSchema
+from schemas.profiles import (
+    UserProfileRetrieveResponseSchema,
+    UserProfileCreateUpdateRequestSchema,
+    UserProfileUpdateAvatarResponseSchema,
+)
+from security.dependencies import get_current_user
+from services.storages.interfaces import S3StorageInterface
+from utils.paginator import paginate_response
+from validators import validate_avatar
+
+router = APIRouter(
+    prefix="/me",
+)
+
+ProfileNotFound = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="Profile not found.",
+)
+
+
+NoDataProvided = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST,
+    detail="No data provided.",
+)
+
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=UserProfileRetrieveResponseSchema,
+    summary="Get user profile",
+    description="Retrieves the profile information of the currently authenticated user.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": UserProfileRetrieveResponseSchema,
+            "description": "User profile retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Profile not found for the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile not found."}}
+            },
+        },
+    },
+)
+async def get_user_profile(
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
+    profile = await db.scalar(stmt)
+
+    if not profile:
+        raise ProfileNotFound
+
+    avatar_url = storage.get_file_url(profile.avatar) if profile.avatar else None
+
+    return UserProfileRetrieveResponseSchema(
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        avatar_url=avatar_url,
+        gender=profile.gender,
+        date_of_birth=profile.date_of_birth,
+        info=profile.info,
+    )
+
+
+@router.get(
+    "/library",
+    status_code=status.HTTP_200_OK,
+    response_model=PaginatedResponseSchema[MovieListResponseSchema],
+    summary="Get user purchased movies library",
+    description="Retrieves a paginated list of movies purchased by the currently authenticated user through successful payments.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Paginated list of purchased movies retrieved successfully.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "User has no purchased movies in their library.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "You don't have any movies yet."}
+                }
+            },
+        },
+    },
+)
+async def get_users_movies(
+    request: Request,
+    pagination: PaginationParams = Depends(),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(func.count(func.distinct(MovieModel.id)))
+        .select_from(MovieModel)
+        .join(PaymentItemModel, PaymentItemModel.movie_id == MovieModel.id)
+        .join(PaymentModel, PaymentItemModel.payment_id == PaymentModel.id)
+        .where(
+            PaymentModel.user_id == user.id,
+            PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+        )
+    )
+    total = await db.scalar(stmt) or 0
+
+    if total == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="You don't have any movies yet.",
+        )
+
+    stmt = (
+        select(MovieModel)
+        .join(PaymentItemModel, PaymentItemModel.movie_id == MovieModel.id)
+        .join(PaymentModel, PaymentItemModel.payment_id == PaymentModel.id)
+        .where(
+            PaymentModel.user_id == user.id,
+            PaymentModel.status == PaymentStatusEnum.SUCCESSFUL,
+        )
+        .offset(pagination.offset)
+        .limit(pagination.limit)
+        .options(
+            selectinload(MovieModel.certification),
+            selectinload(MovieModel.genres),
+        )
+    )
+    results = (await db.scalars(stmt)).all() or []
+
+    return paginate_response(
+        request=request, results=results, total=total, pagination=pagination
+    )
+
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=UserProfileRetrieveResponseSchema,
+    summary="Create user profile",
+    description="Creates a profile for the currently authenticated user. Checks that the profile does not already exist and that initial data is provided.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "model": UserProfileRetrieveResponseSchema,
+            "description": "User profile successfully created.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "No data provided in the request payload.",
+            "content": {
+                "application/json": {"example": {"detail": "No data provided."}}
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Profile already exists for this user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile already exists."}}
+            },
+        },
+    },
+)
+async def create_user_profile(
+    profile_data: UserProfileCreateUpdateRequestSchema,
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    update_data = profile_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise NoDataProvided
+
+    stmt = select(exists().where(UserProfileModel.user_id == user.id))
+    is_profile = await db.scalar(stmt)
+
+    if is_profile:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Profile already exists.",
+        )
+
+    profile = UserProfileModel(
+        user_id=user.id,
+        **update_data,
+    )
+
+    db.add(profile)
+    await db.commit()
+    await db.refresh(profile)
+
+    avatar_url = storage.get_file_url(profile.avatar) if profile.avatar else None
+
+    return UserProfileRetrieveResponseSchema(
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        avatar_url=avatar_url,
+        gender=profile.gender,
+        date_of_birth=profile.date_of_birth,
+        info=profile.info,
+    )
+
+
+@router.patch(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=UserProfileRetrieveResponseSchema,
+    summary="Update user profile",
+    description="Partially updates profile information for the currently authenticated user.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": UserProfileRetrieveResponseSchema,
+            "description": "User profile successfully updated.",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "No data provided in the update payload.",
+            "content": {
+                "application/json": {"example": {"detail": "No data provided."}}
+            },
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Profile not found for the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile not found."}}
+            },
+        },
+    },
+)
+async def update_user_profile(
+    profile_data: UserProfileCreateUpdateRequestSchema,
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    update_data = profile_data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise NoDataProvided
+
+    stmt = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
+    profile = await db.scalar(stmt)
+
+    if not profile:
+        raise ProfileNotFound
+
+    for key, value in update_data.items():
+        setattr(profile, key, value)
+
+    await db.commit()
+    await db.refresh(profile)
+
+    avatar_url = storage.get_file_url(profile.avatar) if profile.avatar else None
+
+    return UserProfileRetrieveResponseSchema(
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        avatar_url=avatar_url,
+        gender=profile.gender,
+        date_of_birth=profile.date_of_birth,
+        info=profile.info,
+    )
+
+
+@router.post(
+    "/avatar",
+    status_code=status.HTTP_200_OK,
+    response_model=UserProfileUpdateAvatarResponseSchema,
+    summary="Upload user avatar",
+    description="Uploads a new avatar image for the user to S3 storage, updates the profile with the new file path, and removes the old avatar if one existed.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": UserProfileUpdateAvatarResponseSchema,
+            "description": "Avatar successfully uploaded and profile updated.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Authentication token missing or invalid.",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Profile not found for the user.",
+            "content": {
+                "application/json": {"example": {"detail": "Profile not found."}}
+            },
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Error occurred while uploading the file to S3 storage.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Failed to upload avatar. Please try again later."
+                    }
+                }
+            },
+        },
+    },
+)
+async def update_avatar(
+    avatar_image: UploadFile = Depends(validate_avatar),
+    storage: S3StorageInterface = Depends(get_s3_storage_client),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
+    profile = await db.scalar(stmt)
+
+    if not profile:
+        raise ProfileNotFound
+
+    try:
+        avatar_bytes = await avatar_image.read()
+        ext = Path(avatar_image.filename).suffix
+
+        file_name = f"avatars/{user.id}_avatar_{uuid4().hex[:8]}{ext}"
+
+        await storage.upload_file(file_name=file_name, file_data=avatar_bytes)
+    except S3FileUploadError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload avatar. Please try again later.",
+        )
+    else:
+        old_avatar = profile.avatar
+
+        profile.avatar = file_name
+        await db.commit()
+        try:
+            if old_avatar:
+                await storage.delete_file(file_name=old_avatar)
+        except:
+            # TODO: Add a background task (Celery / BackgroundTasks) or a background cron script
+            # for periodic cleanup of orphaned files from S3
+            pass
+
+    return UserProfileUpdateAvatarResponseSchema(
+        avatar_url=storage.get_file_url(profile.avatar),
+    )
